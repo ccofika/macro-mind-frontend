@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useCards } from '../../context/CardContext';
 import './ActionBar.css';
 
-const ActionBar = () => {
+const ActionBar = ({ setConnectMode }) => {
   const [showTooltip, setShowTooltip] = useState('');
   const { createCategoryCard, createAnswerCard } = useCards();
 
@@ -19,8 +19,10 @@ const ActionBar = () => {
   };
 
   const handleConnectMode = () => {
-    // Toggle connect mode in the parent component
-    document.dispatchEvent(new CustomEvent('toggleConnectMode'));
+    // Toggle connect mode directly using the prop
+    if (setConnectMode) {
+      setConnectMode(prev => !prev);
+    }
   };
 
   return (

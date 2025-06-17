@@ -71,138 +71,7 @@ export const CardProvider = ({ children }) => {
     setHistoryIndex(newHistory.length - 1);
   }, [history, historyIndex]);
 
-  // Create a new card
-  const createCard = useCallback(async (type, title, content = null, position = { x: 0, y: 0 }) => {
-    const newCard = {
-      id: uuidv4(), // Temporary ID
-      type,
-      title,
-      content,
-      position,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    setCards(prevCards => [...prevCards, newCard]);
-    addToHistory([...cards, newCard], connections);
-    
-    try {
-      // Save to server
-      const savedCard = await cardApi.createCard(newCard);
-      
-      // Update local state with server-generated ID
-      setCards(prevCards => prevCards.map(card => 
-        card.id === newCard.id ? savedCard : card
-      ));
-      
-      return savedCard.id;
-    } catch (err) {
-      console.error("Failed to create card on server:", err);
-      // Card still exists locally with the temporary ID
-      return newCard.id;
-    }
-  }, [cards, connections, addToHistory]);
-
-  // Create category card
-  const createCategoryCard = useCallback((title, screenPosition) => {
-    const canvasPosition = screenToCanvas(screenPosition);
-    return createCard('category', title, null, canvasPosition);
-  }, [createCard, screenToCanvas]);
-
-  // Create answer card
-  const createAnswerCard = useCallback((title, content, screenPosition) => {
-    const canvasPosition = screenToCanvas(screenPosition);
-    return createCard('answer', title, content, canvasPosition);
-  }, [createCard, screenToCanvas]);
-
-  // Update card
-  const updateCard = useCallback(async (id, updates) => {
-    setCards(prevCards => {
-      const newCards = prevCards.map(card => 
-        card.id === id 
-          ? { ...card, ...updates, updatedAt: new Date().toISOString() } 
-          : card
-      );
-      addToHistory(newCards, connections);
-      return newCards;
-    });
-    
-    try {
-      // Update on server
-      await cardApi.updateCard(id, updates);
-    } catch (err) {
-      console.error(`Failed to update card ${id} on server:`, err);
-      // Card is still updated locally
-    }
-  }, [connections, addToHistory]);
-
-  // Move card
-  const moveCard = useCallback((id, position) => {
-    setCards(prevCards => {
-      return prevCards.map(card => 
-        card.id === id 
-          ? { ...card, position } 
-          : card
-      );
-    });
-  }, []);
-
-  // Finalize move (add to history and update server)
-  const finalizeMoveCard = useCallback(async () => {
-    addToHistory(cards, connections);
-    
-    try {
-      // Get current positions of all cards
-      const positions = cards.map(card => ({
-        id: card.id,
-        position: card.position
-      }));
-      
-      // Update positions on server in bulk
-      await cardApi.updateCardPositions(positions);
-    } catch (err) {
-      console.error("Failed to update card positions on server:", err);
-      // Positions still updated locally
-    }
-  }, [cards, connections, addToHistory]);
-
-  // Delete card
-  const deleteCard = useCallback(async (ids) => {
-    if (!Array.isArray(ids)) {
-      ids = [ids];
-    }
-    
-    setCards(prevCards => {
-      const newCards = prevCards.filter(card => !ids.includes(card.id));
-      
-      // Also remove any connections to these cards
-      setConnections(prevConnections => {
-        const newConnections = prevConnections.filter(
-          conn => !ids.includes(conn.sourceId) && !ids.includes(conn.targetId)
-        );
-        
-        addToHistory(newCards, newConnections);
-        return newConnections;
-      });
-      
-      return newCards;
-    });
-    
-    try {
-      // Delete on server (if multiple ids)
-      if (ids.length > 1) {
-        await cardApi.deleteMultipleCards(ids);
-      } else {
-        // Single id
-        await cardApi.deleteCard(ids[0]);
-      }
-    } catch (err) {
-      console.error("Failed to delete card(s) on server:", err);
-      // Cards are still deleted locally
-    }
-  }, [addToHistory]);
-
-  // Connect cards
+  // Connect cards - moved before createCard to avoid dependency issue
   const connectCards = useCallback(async (sourceId, targetId) => {
     // Verify cards exist
     const sourceExists = cards.some(c => c.id === sourceId);
@@ -246,6 +115,160 @@ export const CardProvider = ({ children }) => {
     
     return true;
   }, [cards, connections, addToHistory]);
+
+  // Create a new card (generic function)
+  const createCard = useCallback(async (type, position, parentId = null) => {
+    const title = type === 'category' ? 'New Category' : 'New Answer';
+    const content = type === 'answer' ? '' : null;
+    
+    const newCard = {
+      id: uuidv4(),
+      type,
+      title,
+      content,
+      position,
+      parentId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    setCards(prevCards => [...prevCards, newCard]);
+    addToHistory([...cards, newCard], connections);
+    
+    try {
+      const savedCard = await cardApi.createCard(newCard);
+      setCards(prevCards => prevCards.map(card => 
+        card.id === newCard.id ? savedCard : card
+      ));
+      
+      // If there's a parent, create a connection
+      if (parentId) {
+        connectCards(parentId, savedCard.id);
+      }
+      
+      return savedCard.id;
+    } catch (err) {
+      console.error("Failed to create card on server:", err);
+      return newCard.id;
+    }
+  }, [cards, connections, addToHistory, connectCards]);
+
+  // Create category card
+  const createCategoryCard = useCallback((title, screenPosition) => {
+    const canvasPosition = screenToCanvas ? screenToCanvas(screenPosition) : screenPosition;
+    return createCard('category', canvasPosition);
+  }, [createCard, screenToCanvas]);
+
+  // Create answer card
+  const createAnswerCard = useCallback((title, content, screenPosition) => {
+    const canvasPosition = screenToCanvas ? screenToCanvas(screenPosition) : screenPosition;
+    return createCard('answer', canvasPosition);
+  }, [createCard, screenToCanvas]);
+
+  // Update card
+  const updateCard = useCallback(async (id, updates) => {
+    setCards(prevCards => {
+      const newCards = prevCards.map(card => 
+        card.id === id 
+          ? { ...card, ...updates, updatedAt: new Date().toISOString() } 
+          : card
+      );
+      addToHistory(newCards, connections);
+      return newCards;
+    });
+    
+    try {
+      // Update on server
+      await cardApi.updateCard(id, updates);
+    } catch (err) {
+      console.error(`Failed to update card ${id} on server:`, err);
+      // Card is still updated locally
+    }
+  }, [connections, addToHistory]);
+
+  // Move card
+  const moveCard = useCallback((id, position) => {
+    setCards(prevCards => {
+      return prevCards.map(card => 
+        card.id === id 
+          ? { ...card, position } 
+          : card
+      );
+    });
+  }, []);
+
+  // Finalize move (add to history and update server)
+  const finalizeMoveCard = useCallback(async () => {
+    // Add current state to history
+    addToHistory(cards, connections);
+    
+    try {
+      console.log("Finalizing card positions...");
+      
+      // Get current positions of all cards
+      const positions = cards.map(card => ({
+        id: card.id,
+        position: card.position
+      }));
+      
+      console.log(`Sending ${positions.length} card positions to server`);
+      
+      // Ensure we have the latest state before sending to server
+      // This is important because React state updates are asynchronous
+      setTimeout(async () => {
+        try {
+          // Update positions on server in bulk with the latest state
+          const latestPositions = cards.map(card => ({
+            id: card.id,
+            position: card.position
+          }));
+          
+          const result = await cardApi.updateCardPositions(latestPositions);
+          console.log("Card positions saved successfully:", result);
+        } catch (err) {
+          console.error("Failed to update card positions on server:", err);
+        }
+      }, 0);
+    } catch (err) {
+      console.error("Failed to prepare card positions update:", err);
+    }
+  }, [cards, connections, addToHistory]);
+
+  // Delete card
+  const deleteCard = useCallback(async (ids) => {
+    if (!Array.isArray(ids)) {
+      ids = [ids];
+    }
+    
+    setCards(prevCards => {
+      const newCards = prevCards.filter(card => !ids.includes(card.id));
+      
+      // Also remove any connections to these cards
+      setConnections(prevConnections => {
+        const newConnections = prevConnections.filter(
+          conn => !ids.includes(conn.sourceId) && !ids.includes(conn.targetId)
+        );
+        
+        addToHistory(newCards, newConnections);
+        return newConnections;
+      });
+      
+      return newCards;
+    });
+    
+    try {
+      // Delete on server (if multiple ids)
+      if (ids.length > 1) {
+        await cardApi.deleteMultipleCards(ids);
+      } else {
+        // Single id
+        await cardApi.deleteCard(ids[0]);
+      }
+    } catch (err) {
+      console.error("Failed to delete card(s) on server:", err);
+      // Cards are still deleted locally
+    }
+  }, [addToHistory]);
 
   // Remove connection
   const removeConnection = useCallback(async (sourceId, targetId) => {
@@ -298,8 +321,6 @@ export const CardProvider = ({ children }) => {
       setCards(prevState.cards);
       setConnections(prevState.connections);
       setHistoryIndex(historyIndex - 1);
-      
-      // Note: We don't need to update the server here as the next action will trigger server updates
     }
   }, [history, historyIndex]);
 
@@ -310,8 +331,6 @@ export const CardProvider = ({ children }) => {
       setCards(nextState.cards);
       setConnections(nextState.connections);
       setHistoryIndex(historyIndex + 1);
-      
-      // Note: We don't need to update the server here as the next action will trigger server updates
     }
   }, [history, historyIndex]);
 
@@ -327,6 +346,40 @@ export const CardProvider = ({ children }) => {
     return () => clearTimeout(timer);
   }, [cards, connections]);
 
+  // Delete selected cards
+  const deleteSelectedCards = useCallback(() => {
+    if (selectedCardIds.length > 0) {
+      deleteCard(selectedCardIds);
+      setSelectedCardIds([]);
+    }
+  }, [selectedCardIds, deleteCard]);
+
+  // Get a card by ID
+  const getCardById = useCallback((id) => {
+    return cards.find(card => card.id === id);
+  }, [cards]);
+
+  // Get connected cards for a given card ID
+  const getConnectedCards = useCallback((cardId) => {
+    const connectedCardIds = new Set();
+    
+    connections.forEach(conn => {
+      if (conn.sourceId === cardId) {
+        connectedCardIds.add(conn.targetId);
+      } else if (conn.targetId === cardId) {
+        connectedCardIds.add(conn.sourceId);
+      }
+    });
+    
+    return cards.filter(card => connectedCardIds.has(card.id));
+  }, [cards, connections]);
+
+  // Add card function for ActionBar
+  const addCard = useCallback((type = 'category') => {
+    const position = { x: 100, y: 100 };
+    return createCard(type, position);
+  }, [createCard]);
+
   // Context value
   const value = {
     cards,
@@ -334,6 +387,7 @@ export const CardProvider = ({ children }) => {
     selectedCardIds,
     loading,
     error,
+    createCard,
     createCategoryCard,
     createAnswerCard,
     updateCard,
@@ -345,7 +399,11 @@ export const CardProvider = ({ children }) => {
     selectCard,
     clearSelection,
     undo,
-    redo
+    redo,
+    deleteSelectedCards,
+    getCardById,
+    getConnectedCards,
+    addCard
   };
 
   return (

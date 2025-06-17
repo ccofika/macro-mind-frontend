@@ -3,6 +3,42 @@ import './Card.css';
 import { useCards } from '../../context/CardContext';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 
+// Optimization: Extract static SVGs to prevent re-renders
+const FolderIcon = memo(() => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+  </svg>
+));
+
+const MinimizeIcon = memo(() => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="5" y1="12" x2="19" y2="12"></line>
+  </svg>
+));
+
+const LinkIcon = memo(() => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+  </svg>
+));
+
+const FileIcon = memo(() => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+    <polyline points="14 2 14 8 20 8"></polyline>
+    <line x1="12" y1="13" x2="12" y2="13"></line>
+    <line x1="12" y1="17" x2="12" y2="17"></line>
+  </svg>
+));
+
+const PlusIcon = memo(() => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="12" y1="5" x2="12" y2="19"></line>
+    <line x1="5" y1="12" x2="19" y2="12"></line>
+  </svg>
+));
+
 const CategoryCard = ({ 
   card, 
   isSelected, 
@@ -19,9 +55,10 @@ const CategoryCard = ({
   const cardRef = useRef(null);
   const { selectCard, updateCard, createCard, getConnectedCards } = useCards();
   
-  // Get connected cards count
-  const connectedCards = getConnectedCards ? getConnectedCards(card.id) : [];
-  const connectionCount = connectedCards.length;
+  // Get connected cards count - memoize this calculation
+  const connectionCount = React.useMemo(() => {
+    return getConnectedCards ? getConnectedCards(card.id).length : 0;
+  }, [card.id, getConnectedCards]);
   
   // Setup drag and drop functionality
   const { position, isDragging, handleMouseDown, updatePosition } = useDragAndDrop(card.id, card.position);
@@ -114,9 +151,7 @@ const CategoryCard = ({
     >
       <div className="card-header">
         <span className="card-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-          </svg>
+          <FolderIcon />
         </span>
         {isExpanded && isEditingTitle ? (
           <input
@@ -146,9 +181,7 @@ const CategoryCard = ({
             onClick={handleMinimize}
             title="Minimize (Esc)"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
+            <MinimizeIcon />
           </button>
         )}
       </div>
@@ -167,10 +200,7 @@ const CategoryCard = ({
               title="Connect to another card"
               onClick={handleStartConnection}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-              </svg>
+              <LinkIcon />
               <span>Connect</span>
             </button>
             <button
@@ -178,12 +208,7 @@ const CategoryCard = ({
               title="Add new answer"
               onClick={handleAddAnswer}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="12" y1="13" x2="12" y2="13"></line>
-                <line x1="12" y1="17" x2="12" y2="17"></line>
-              </svg>
+              <FileIcon />
               <span>Add Answer</span>
             </button>
           </div>
@@ -197,55 +222,18 @@ const CategoryCard = ({
           <div className="card-quick-actions">
             <button 
               className="quick-action-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(true);
-              }}
-              title="Expand"
+              onClick={handleStartConnection}
+              title="Connect"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-              </svg>
+              <LinkIcon />
             </button>
-            
             <button 
               className="quick-action-btn"
               onClick={handleAddAnswer}
-              title="Quick add answer"
+              title="Add Answer"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="16"></line>
-                <line x1="8" y1="12" x2="16" y2="12"></line>
-              </svg>
+              <PlusIcon />
             </button>
-            
-            <button 
-              className="quick-action-btn"
-              onClick={handleStartConnection}
-              title="Quick connect"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-              </svg>
-            </button>
-          </div>
-          
-          <div className="card-footer-stats">
-            <div className="card-stat">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-              </svg>
-              <span>Category</span>
-            </div>
-            <div className="card-stat">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-              </svg>
-              <span>{connectionCount} items</span>
-            </div>
           </div>
         </>
       )}
@@ -274,13 +262,18 @@ const CategoryCard = ({
   );
 };
 
-export default memo(CategoryCard, (prevProps, nextProps) => {
+// Use React.memo to prevent unnecessary re-renders
+const arePropsEqual = (prevProps, nextProps) => {
+  // Only re-render if these props change
   return (
+    prevProps.card.id === nextProps.card.id &&
+    prevProps.card.title === nextProps.card.title &&
+    JSON.stringify(prevProps.card.position) === JSON.stringify(nextProps.card.position) &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isHovered === nextProps.isHovered &&
     prevProps.isRelated === nextProps.isRelated &&
-    prevProps.connectMode === nextProps.connectMode &&
-    JSON.stringify(prevProps.card.position) === JSON.stringify(nextProps.card.position) &&
-    prevProps.card.title === nextProps.card.title
+    prevProps.connectMode === nextProps.connectMode
   );
-});
+};
+
+export default memo(CategoryCard, arePropsEqual);

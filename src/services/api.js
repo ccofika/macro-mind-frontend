@@ -11,14 +11,78 @@ const api = axios.create({
   },
 });
 
+// Add token to requests if available
+const token = localStorage.getItem('token');
+if (token) {
+  api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+}
+
 // Error handling interceptor
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Handle 401 Unauthorized errors (token expired or invalid)
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('token');
+      delete api.defaults.headers.common['Authorization'];
+      
+      // Redirect to login page if not already there
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+    }
+    
     console.error('API Error:', error.response);
     return Promise.reject(error);
   }
 );
+
+// Auth-related API calls
+export const authApi = {
+  // Login with email and password
+  login: async (email, password) => {
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      return response.data;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    }
+  },
+  
+  // Login with Google
+  googleLogin: async (token) => {
+    try {
+      const response = await api.post('/auth/google', { token });
+      return response.data;
+    } catch (error) {
+      console.error('Google login failed:', error);
+      throw error;
+    }
+  },
+  
+  // Register new user
+  register: async (userData) => {
+    try {
+      const response = await api.post('/auth/register', userData);
+      return response.data;
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
+    }
+  },
+  
+  // Get current user info
+  getCurrentUser: async () => {
+    try {
+      const response = await api.get('/auth/me');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get current user:', error);
+      throw error;
+    }
+  }
+};
 
 // Card-related API calls
 export const cardApi = {
@@ -80,7 +144,24 @@ export const cardApi = {
   // Update card positions in bulk
   updateCardPositions: async (positions) => {
     try {
-      const response = await api.post('/cards/positions', { positions });
+      // Filter out any positions that don't have valid data
+      const validPositions = positions.filter(pos => 
+        pos && pos.id && pos.position && 
+        typeof pos.position.x === 'number' && 
+        typeof pos.position.y === 'number'
+      );
+      
+      if (validPositions.length === 0) {
+        console.warn('No valid positions to update');
+        return { success: false, message: 'No valid positions to update' };
+      }
+      
+      console.log(`Sending ${validPositions.length} valid card positions to server`);
+      
+      const response = await api.post('/cards/positions', { 
+        positions: validPositions 
+      });
+      
       return response.data;
     } catch (error) {
       console.error('Failed to update card positions:', error);

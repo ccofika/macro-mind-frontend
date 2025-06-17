@@ -1,5 +1,5 @@
 /* Canvas Container */
-.canvas {
+.canvas-container {
   width: 100%;
   height: 100vh;
   background: radial-gradient(ellipse at center, #0F0F11 0%, #0A0A0C 100%);
@@ -7,23 +7,37 @@
   overflow: hidden;
   cursor: grab;
   user-select: none;
+  will-change: transform;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
 }
 
-/* Grid Pattern Background */
-.canvas::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 200%;
-  height: 200%;
-  background-image: 
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 50px 50px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+.canvas {
+  width: 100%;
+  height: 100%;
+  position: relative;
 }
+
+/* Zooming state */
+.canvas-container.zooming {
+  cursor: zoom-in;
+}
+
+.canvas-container.zooming .cards-container,
+.canvas-container.zooming .connections-container {
+  transition: none !important;
+}
+
+/* Card placeholder for high performance mode */
+.card-placeholder {
+  position: absolute;
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0.8;
+  will-change: transform;
+}
+
+/* Grid Pattern Background - removed, now handled by JavaScript */
 
 /* Subtle Gradient Overlay */
 .canvas::after {
@@ -41,20 +55,20 @@
   pointer-events: none;
 }
 
-.canvas:active {
+.canvas-container:active {
   cursor: grabbing !important;
 }
 
-.canvas.panning {
+.canvas-container.panning {
   cursor: grabbing !important;
 }
 
-.canvas.connect-mode {
+.canvas-container.connect-mode {
   cursor: crosshair;
 }
 
 /* Grid Pattern SVG */
-.grid-pattern {
+.grid-background {
   position: absolute;
   top: 0;
   left: 0;
@@ -62,6 +76,7 @@
   height: 100%;
   pointer-events: none;
   opacity: 0.15;
+  will-change: transform;
 }
 
 /* Cards Container */
@@ -73,6 +88,8 @@
   height: 0;
   transform-origin: 0 0;
   will-change: transform;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
 }
 
 /* Connections Container */
@@ -85,6 +102,9 @@
   transform-origin: 0 0;
   pointer-events: none;
   z-index: 5;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
 }
 
 /* Connection Lines */
@@ -104,12 +124,31 @@
   fill: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   filter: drop-shadow(0 0 3px rgba(74, 158, 255, 0.3));
+  will-change: stroke-dashoffset;
 }
 
 .connection-line.highlighted {
   stroke: rgba(74, 158, 255, 0.8);
   stroke-width: 3;
   filter: drop-shadow(0 0 8px rgba(74, 158, 255, 0.6));
+}
+
+/* Card connection */
+.card-connection {
+  position: absolute;
+  background-color: rgba(74, 158, 255, 0.6);
+  height: 2px;
+  will-change: transform, opacity;
+  transform-origin: left center;
+  transition: height 0.2s, opacity 0.2s, background-color 0.2s;
+  pointer-events: none;
+}
+
+.card-connection.highlighted {
+  height: 3px;
+  background-color: var(--accent-color);
+  opacity: 0.9;
+  box-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
 }
 
 /* Connect Mode Indicator */
@@ -353,32 +392,34 @@
   bottom: 24px;
   right: 24px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  background: rgba(20, 20, 22, 0.7);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 8px;
   z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .zoom-button {
-  width: 40px;
-  height: 40px;
-  background: rgba(20, 20, 22, 0.9);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.7);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+  font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 18px;
-  font-weight: 600;
+  margin: 0 2px;
 }
 
 .zoom-button:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.1);
   transform: scale(1.05);
 }
 
@@ -386,12 +427,33 @@
   transform: scale(0.95);
 }
 
+/* High performance mode button */
+.zoom-button.active {
+  background: rgba(255, 215, 0, 0.2);
+  color: rgba(255, 215, 0, 0.9);
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+}
+
 .zoom-level {
-  font-size: 11px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 8px;
+  min-width: 40px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 4px 0;
-  font-weight: 500;
+}
+
+/* Performance stats display */
+.performance-stats {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+  z-index: 1000;
 }
 
 /* Selection Box */
@@ -469,6 +531,36 @@
   will-change: transform;
 }
 
+/* Canvas Content */
+.canvas-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* Smooth card transitions */
+.card {
+  transition: transform 0.1s ease-out;
+  will-change: transform;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+/* Improve performance with hardware acceleration */
+.canvas,
+.canvas-content,
+.cards-container,
+.connections-container,
+.card,
+.connection-line {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .connect-mode-indicator {
@@ -486,5 +578,15 @@
     width: 36px;
     height: 36px;
     font-size: 16px;
+  }
+}
+
+/* Optimize CSS animations */
+@media (prefers-reduced-motion: reduce) {
+  .card-connection, 
+  .connect-mode-indicator,
+  .zoom-button {
+    transition: none !important;
+    animation: none !important;
   }
 }

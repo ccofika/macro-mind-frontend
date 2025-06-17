@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import './NavBar.css';
 import SearchBar from './SearchBar';
 import LinkEditor from './LinkEditor';
+import AuthContext from '../../context/AuthContext';
 
 const NavBar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -16,6 +17,7 @@ const NavBar = () => {
   });
   const navRef = useRef(null);
   const timeoutRef = useRef(null);
+  const { currentUser, logout } = useContext(AuthContext);
   
   // Load saved links on component mount
   useEffect(() => {
@@ -127,6 +129,12 @@ const NavBar = () => {
     setShowLinkEditor(true);
   };
 
+  // Handle logout
+  const handleLogout = (e) => {
+    e.stopPropagation();
+    logout();
+  };
+
   return (
     <div 
       className={`navbar ${isExpanded ? 'expanded' : 'collapsed'}`}
@@ -140,6 +148,24 @@ const NavBar = () => {
       
       {isExpanded && (
         <div className="navbar-content">
+          {/* User info section */}
+          <div className="user-info">
+            <div className="user-avatar">
+              {currentUser?.picture ? (
+                <img src={currentUser.picture} alt="Profile" />
+              ) : (
+                <span>{currentUser?.name?.charAt(0) || 'U'}</span>
+              )}
+            </div>
+            <div className="user-details">
+              <div className="user-name">{currentUser?.name || 'User'}</div>
+              <div className="user-email">{currentUser?.email}</div>
+            </div>
+            <button className="logout-button" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+          
           <SearchBar />
           
           {showLinkEditor && (

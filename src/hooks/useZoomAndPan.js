@@ -29,7 +29,7 @@ export const useZoomAndPan = (canvasRef) => {
     // Animate zoom
     const zoomDiff = targetZoomRef.current - currentZoomRef.current;
     if (Math.abs(zoomDiff) > 0.001) {
-      currentZoomRef.current += zoomDiff * 0.12; // Smoothing factor
+      currentZoomRef.current += zoomDiff * 0.15; // Slightly faster smoothing
       hasChanges = true;
     }
     
@@ -38,8 +38,8 @@ export const useZoomAndPan = (canvasRef) => {
     const panYDiff = targetPanRef.current.y - currentPanRef.current.y;
     
     if (Math.abs(panXDiff) > 0.1 || Math.abs(panYDiff) > 0.1) {
-      currentPanRef.current.x += panXDiff * 0.12;
-      currentPanRef.current.y += panYDiff * 0.12;
+      currentPanRef.current.x += panXDiff * 0.15; // Slightly faster smoothing
+      currentPanRef.current.y += panYDiff * 0.15;
       hasChanges = true;
     }
     
@@ -53,7 +53,7 @@ export const useZoomAndPan = (canvasRef) => {
     }
   }, [setZoom, setPan]);
 
-  // Zoom handler that zooms to cursor position
+  // Improved zoom handler with better cursor-centered zooming
   const handleZoom = useCallback((delta, mousePos) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -61,30 +61,26 @@ export const useZoomAndPan = (canvasRef) => {
     const rect = canvas.getBoundingClientRect();
     
     // Mouse position relative to canvas
-    const mouseX = mousePos.x - rect.left;
-    const mouseY = mousePos.y - rect.top;
+    const mouseX = mousePos.x;
+    const mouseY = mousePos.y;
     
     // Current zoom and pan values
     const currentZoom = targetZoomRef.current;
-    const currentPan = { ...targetPanRef.current };
     
-    // Calculate zoom factor
-    const zoomFactor = delta > 0 ? 1.1 : 0.9;
-    const newZoom = currentZoom * zoomFactor;
-    
-    // Clamp zoom
-    const clampedZoom = Math.max(0.1, Math.min(5, newZoom));
+    // Calculate zoom factor - exponential for smoother zooming
+    const zoomFactor = delta > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.1, Math.min(5, currentZoom * zoomFactor));
     
     // Calculate the point in world space that the mouse is over
-    const worldX = (mouseX - currentPan.x) / currentZoom;
-    const worldY = (mouseY - currentPan.y) / currentZoom;
+    const worldX = (mouseX - targetPanRef.current.x) / currentZoom;
+    const worldY = (mouseY - targetPanRef.current.y) / currentZoom;
     
     // Calculate new pan to keep the same world point under the mouse
-    const newPanX = mouseX - worldX * clampedZoom;
-    const newPanY = mouseY - worldY * clampedZoom;
+    const newPanX = mouseX - worldX * newZoom;
+    const newPanY = mouseY - worldY * newZoom;
     
     // Update targets
-    targetZoomRef.current = clampedZoom;
+    targetZoomRef.current = newZoom;
     targetPanRef.current = { x: newPanX, y: newPanY };
     
     // Start animation if not already running
@@ -118,19 +114,21 @@ export const useZoomAndPan = (canvasRef) => {
       e.preventDefault();
       
       // Normalize wheel delta across browsers and devices
-      let delta = e.deltaY;
+      let delta;
       
       // Handle different deltaMode values
       if (e.deltaMode === 1) { // DOM_DELTA_LINE
-        delta *= 40;
+        delta = e.deltaY * 0.05;
       } else if (e.deltaMode === 2) { // DOM_DELTA_PAGE
-        delta *= 800;
+        delta = e.deltaY * 0.002;
+      } else { // DOM_DELTA_PIXEL (most common)
+        delta = e.deltaY * 0.001;
       }
       
-      // Convert to zoom direction (-1 or 1)
-      const zoomDelta = delta > 0 ? -1 : 1;
+      // Limit maximum delta to prevent jumpy zooming
+      delta = Math.max(-1, Math.min(1, delta));
       
-      handleZoom(zoomDelta, { x: e.clientX, y: e.clientY });
+      handleZoom(delta, { x: e.clientX, y: e.clientY });
     };
 
     // Mouse handlers for panning
@@ -210,10 +208,10 @@ export const useZoomAndPan = (canvasRef) => {
         // Handle zoom
         if (touchStartDistance > 0) {
           const scale = currentDistance / touchStartDistance;
-          const zoomDelta = scale > 1 ? 1 : -1;
+          const zoomDelta = scale > 1 ? -0.5 : 0.5; // Adjusted for smoother touch zooming
           
           if (Math.abs(scale - 1) > 0.01) { // Threshold to prevent tiny changes
-            handleZoom(zoomDelta * 0.5, currentCenter); // Reduced intensity for touch
+            handleZoom(zoomDelta, currentCenter);
             touchStartDistance = currentDistance;
           }
         }
@@ -246,48 +244,21 @@ export const useZoomAndPan = (canvasRef) => {
         
         if (e.key === '+' || e.key === '=') {
           e.preventDefault();
-          handleZoom(1, center);
+          handleZoom(-0.5, center); // Zoom in
         } else if (e.key === '-' || e.key === '_') {
           e.preventDefault();
-          handleZoom(-1, center);
-        } else if (e.key === '0') {
-          e.preventDefault();
-          targetZoomRef.current = 1;
-          targetPanRef.current = { x: 0, y: 0 };
-          if (!animationRef.current) {
-            animationRef.current = requestAnimationFrame(animate);
-          }
+          handleZoom(0.5, center); // Zoom out
         }
       }
     };
 
-    // Set initial cursor
-    canvas.style.cursor = 'grab';
-
-    // Add event listeners
-    canvas.addEventListener('wheel', handleWheel, { passive: false });
-    canvas.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-    canvas.addEventListener('touchend', handleTouchEnd);
-    window.addEventListener('keydown', handleKeyDown);
-
-    // Cleanup
+    // Clean up all event listeners on unmount
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
-      
-      canvas.removeEventListener('wheel', handleWheel);
-      canvas.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      canvas.removeEventListener('touchstart', handleTouchStart);
-      canvas.removeEventListener('touchmove', handleTouchMove);
-      canvas.removeEventListener('touchend', handleTouchEnd);
-      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [canvasRef, handleZoom, handlePan, setIsDragging, animate]);
+
+  return { handleZoom, handlePan };
 };

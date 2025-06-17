@@ -1,39 +1,77 @@
-import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import './Canvas.css';
-import CategoryCard from '../Card/CategoryCard';
-import AnswerCard from '../Card/AnswerCard';
 import CardConnection from '../Card/CardConnection';
 import ActionBar from '../ActionBar/ActionBar';
 import { useCanvas } from '../../context/CanvasContext';
 import { useCards } from '../../context/CardContext';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useAutoSave } from '../../hooks/useAutoSave';
+import { useDragAndDrop } from '../../hooks/useDragAndDrop';
+import { useZoomAndPan } from '../../hooks/useZoomAndPan';
 
-// Konstante - smanjuju GC i rekalkulaciju
-const BUFFER_SIZE = 700; // Povećan buffer za glatke prelaze
+// Lazy load card components
+const CategoryCard = lazy(() => import('../Card/CategoryCard'));
+const AnswerCard = lazy(() => import('../Card/AnswerCard'));
+
+// Constants
+const BUFFER_SIZE = 700; // Buffer for card visibility
+const RENDER_THROTTLE = 16; // ~60fps
+const ZOOM_RENDER_DELAY = 150; // ms to delay full render during zooming
+
+// Placeholder component for cards during zooming
+const CardPlaceholder = ({ position, type }) => {
+  const style = {
+    position: 'absolute',
+    width: '280px',
+    height: type === 'category' ? '120px' : '160px',
+    transform: `translate(${position.x}px, ${position.y}px)`,
+    background: type === 'category' ? 'rgba(74, 158, 255, 0.2)' : 'rgba(255, 158, 74, 0.2)',
+    borderRadius: '8px',
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.1)'
+  };
+  
+  return <div className="card-placeholder" style={style} />;
+};
 
 const Canvas = () => {
   const canvasRef = useRef(null);
-  const { zoom, pan, canvasToScreen, handleZoom, handlePan, setIsDragging } = useCanvas();
+  const connectLineRef = useRef(null);
+  const renderTimerRef = useRef(null);
+  const zoomTimerRef = useRef(null);
+  const { zoom, pan, canvasToScreen, handleZoom, handlePan, setIsDragging, resetView } = useCanvas();
   const { 
     cards, 
     connections, 
     selectedCardIds, 
     clearSelection, 
     createCategoryCard, 
-    connectCards 
+    connectCards,
+    setSelectedCardIds,
+    addCard,
+    moveCard,
+    finalizeMoveCard,
+    deleteSelectedCards,
+    getCardById
   } = useCards();
   
   const [connectMode, setConnectMode] = useState(false);
-  const [sourceCardId, setSourceCardId] = useState(null);
-  const [connectionLine, setConnectionLine] = useState(null);
+  const [connectSource, setConnectSource] = useState(null);
+  const [connectTarget, setConnectTarget] = useState(null);
   const [hoveredCardId, setHoveredCardId] = useState(null);
+  const [relatedCardIds, setRelatedCardIds] = useState(new Set());
+  const [forceUpdate, setForceUpdate] = useState(0);
+  const [isZooming, setIsZooming] = useState(false);
+  const [isHighPerformanceMode, setIsHighPerformanceMode] = useState(false);
   
-  // Panning state - optimizovano za ReactJS ažuriranja
+  // Panning state - improved implementation
   const [isPanning, setIsPanning] = useState(false);
   const panningRef = useRef({
     isPanning: false,
-    lastPosition: { x: 0, y: 0 },
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastY: 0,
     animationFrame: null
   });
   
@@ -43,111 +81,259 @@ const Canvas = () => {
   // Setup auto-save functionality
   useAutoSave();
 
+  // Initialize drag and drop functionality
+  const dragAndDropHandlers = useDragAndDrop({
+    canvasRef,
+    scale: zoom,
+    position: pan,
+    cards,
+    selectedCardIds,
+    setSelectedCardIds,
+    moveCard,
+    finalizeMoveCard,
+    setIsMoving: setIsDragging
+  });
+  
+  // Initialize zoom and pan functionality
+  const zoomHandlers = useZoomAndPan(canvasRef);
+
   // Listen for connect mode toggle events
   useEffect(() => {
-    const handleToggleConnectMode = () => {
-      setConnectMode(prevMode => !prevMode);
-      if (connectMode) {
-        // Reset connection state when exiting connect mode
-        setSourceCardId(null);
-        setConnectionLine(null);
+    const handleKeyDown = (e) => {
+      if (e.key === 'c') {
+        setConnectMode(prev => !prev);
+      }
+      
+      // Toggle high-performance mode with 'h' key
+      if (e.key === 'h') {
+        setIsHighPerformanceMode(prev => !prev);
       }
     };
     
-    document.addEventListener('toggleConnectMode', handleToggleConnectMode);
-    
-    return () => {
-      document.removeEventListener('toggleConnectMode', handleToggleConnectMode);
-    };
-  }, [connectMode]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
-  // Implementacija pomeranja po canvasu - optimizovana za smootness
+  // Reset connection state when toggling connect mode
+  useEffect(() => {
+    if (!connectMode && connectSource) {
+      setConnectSource(null);
+      setConnectTarget(null);
+    }
+  }, [connectMode, connectSource]);
+  
+  // Enhanced zoom handling with performance optimizations
+  const handleZoomWithPerformance = useCallback((delta, point) => {
+    // Enter zooming state
+    setIsZooming(true);
+    
+    // Apply zoom
+    handleZoom(delta, point);
+    
+    // Clear any existing zoom timer
+    if (zoomTimerRef.current) {
+      clearTimeout(zoomTimerRef.current);
+    }
+    
+    // Set a timer to exit zooming state after a delay
+    zoomTimerRef.current = setTimeout(() => {
+      setIsZooming(false);
+      zoomTimerRef.current = null;
+      // Force update to ensure full render after zooming
+      setForceUpdate(prev => prev + 1);
+    }, ZOOM_RENDER_DELAY);
+    
+    // Throttle rendering updates
+    throttleRender();
+  }, [handleZoom]);
+
+  // Enhanced panning implementation
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Zoom handling
+    // Enhanced wheel handling for smoother zooming centered on cursor
     const handleWheel = (e) => {
-  e.preventDefault();
-  
-  // Calculate zoom direction (in or out)
-  // Koristimo manji koeficijent za sporiji zoom
-  const delta = e.deltaY > 0 ? 0.5 : -0.5;
-  
-  // Zoom centered on mouse position
-  handleZoom(delta, { x: e.clientX, y: e.clientY });
-};
+      e.preventDefault();
+      
+      // Normalize wheel delta across browsers
+      let delta;
+      
+      // Handle different delta modes
+      if (e.deltaMode === 1) { // DOM_DELTA_LINE
+        delta = e.deltaY * 0.05;
+      } else if (e.deltaMode === 2) { // DOM_DELTA_PAGE
+        delta = e.deltaY * 0.002;
+      } else { // DOM_DELTA_PIXEL (most common)
+        delta = e.deltaY * 0.001;
+      }
+      
+      // Limit maximum delta to prevent jumpy zooming
+      delta = Math.max(-0.5, Math.min(0.5, delta));
+      
+      // Get exact cursor position in client coordinates
+      const mousePos = {
+        x: e.clientX,
+        y: e.clientY
+      };
+      
+      // Apply zoom centered on cursor position with performance optimizations
+      handleZoomWithPerformance(delta, mousePos);
+    };
 
-    // Handle mouse down for panning - samo levi klik
+    // Handle mouse down for panning
     const handleMouseDown = (e) => {
-      // Proveravamo target direktno - mora biti sam canvas element
-      if (e.target === canvas) {
+      // Only handle left mouse button
+      if (e.button !== 0) return;
+      
+      // Check if the click is on the canvas background or grid
+      const isCanvasBackground = e.target === canvas || 
+                                e.target.classList.contains('grid-background') ||
+                                e.target.classList.contains('canvas');
+      
+      // Don't pan if clicking on cards or interactive elements
+      const isInteractiveElement = e.target.closest('.card') || 
+                                  e.target.closest('.action-bar') ||
+                                  e.target.closest('.zoom-controls') ||
+                                  e.target.closest('.connect-mode-indicator') ||
+                                  e.target.closest('button') ||
+                                  e.target.closest('input') ||
+                                  e.target.closest('svg');
+      
+      if (isCanvasBackground && !isInteractiveElement) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Start panning
         setIsPanning(true);
         panningRef.current.isPanning = true;
-        panningRef.current.lastPosition = { x: e.clientX, y: e.clientY };
-        setIsDragging(true);
+        panningRef.current.startX = e.clientX;
+        panningRef.current.startY = e.clientY;
+        panningRef.current.lastX = e.clientX;
+        panningRef.current.lastY = e.clientY;
+        
+        // Update cursor
         canvas.style.cursor = 'grabbing';
+        setIsDragging(true);
       }
     };
 
-    // Handle mouse move for panning - optimizovano sa requestAnimationFrame
+    // Handle mouse move for panning
     const handleMouseMove = (e) => {
       if (!panningRef.current.isPanning) return;
       
-      // Otkazujemo prethodni animacioni frejm ako postoji
+      e.preventDefault();
+      
+      // Cancel previous animation frame if exists
       if (panningRef.current.animationFrame) {
         cancelAnimationFrame(panningRef.current.animationFrame);
       }
       
-      // Koristimo requestAnimationFrame za glatkije ažuriranje
+      // Use requestAnimationFrame for smooth updates
       panningRef.current.animationFrame = requestAnimationFrame(() => {
-        const dx = e.clientX - panningRef.current.lastPosition.x;
-        const dy = e.clientY - panningRef.current.lastPosition.y;
+        const dx = e.clientX - panningRef.current.lastX;
+        const dy = e.clientY - panningRef.current.lastY;
         
+        // Apply panning
         handlePan(dx, dy);
-        panningRef.current.lastPosition = { x: e.clientX, y: e.clientY };
+        
+        // Update last position
+        panningRef.current.lastX = e.clientX;
+        panningRef.current.lastY = e.clientY;
+        
+        // Throttle rendering updates
+        throttleRender();
       });
     };
 
     // Handle mouse up to end panning
-    const handleMouseUp = () => {
+    const handleMouseUp = (e) => {
       if (panningRef.current.isPanning) {
         setIsPanning(false);
         panningRef.current.isPanning = false;
         setIsDragging(false);
+        
+        // Reset cursor
         canvas.style.cursor = 'grab';
         
-        // Otkazujemo animacioni frejm ako postoji
+        // Cancel animation frame if exists
         if (panningRef.current.animationFrame) {
           cancelAnimationFrame(panningRef.current.animationFrame);
           panningRef.current.animationFrame = null;
         }
+        
+        // Force one final render
+        setForceUpdate(prev => prev + 1);
       }
     };
 
+    // Handle mouse leave to end panning
+    const handleMouseLeave = () => {
+      if (panningRef.current.isPanning) {
+        handleMouseUp();
+      }
+    };
+
+    // Add event listeners
     canvas.addEventListener('wheel', handleWheel, { passive: false });
     canvas.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('mouseleave', handleMouseUp);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
+      canvas.removeEventListener('wheel', handleWheel);
       canvas.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('mouseleave', handleMouseUp);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('mouseleave', handleMouseLeave);
       
-      // Čišćenje animacionog frejma ako postoji
+      // Clean up animation frame if exists
       if (panningRef.current.animationFrame) {
         cancelAnimationFrame(panningRef.current.animationFrame);
       }
+      
+      // Clear any pending render timer
+      if (renderTimerRef.current) {
+        clearTimeout(renderTimerRef.current);
+      }
+      
+      // Clear zoom timer
+      if (zoomTimerRef.current) {
+        clearTimeout(zoomTimerRef.current);
+      }
     };
-  }, [handleZoom, handlePan, setIsDragging]);
+  }, [handleZoom, handlePan, setIsDragging, handleZoomWithPerformance]);
+
+  // Throttle render updates for better performance
+  const throttleRender = useCallback(() => {
+    if (renderTimerRef.current) {
+      return; // Already pending update
+    }
+    
+    renderTimerRef.current = setTimeout(() => {
+      setForceUpdate(prev => prev + 1);
+      renderTimerRef.current = null;
+    }, RENDER_THROTTLE);
+  }, []);
 
   // Click on empty canvas to clear selection
   const handleCanvasClick = useCallback((e) => {
-    // Samo ako je kliknuto direktno na canvas element
-    if (e.target === canvasRef.current) {
+    // Only handle clicks on canvas background
+    const isCanvasBackground = e.target === canvasRef.current || 
+                              e.target.classList.contains('grid-background') ||
+                              e.target.classList.contains('canvas');
+    
+    // Don't handle clicks on interactive elements
+    const isInteractiveElement = e.target.closest('.card') || 
+                                e.target.closest('.action-bar') ||
+                                e.target.closest('.zoom-controls') ||
+                                e.target.closest('.connect-mode-indicator') ||
+                                e.target.closest('button') ||
+                                e.target.closest('input') ||
+                                e.target.closest('svg');
+    
+    if (isCanvasBackground && !isInteractiveElement) {
       clearSelection();
       
       // Double click on empty canvas creates a new category card
@@ -157,98 +343,59 @@ const Canvas = () => {
       
       // Exit connect mode if clicked on empty space
       if (connectMode) {
-        setSourceCardId(null);
-        setConnectionLine(null);
+        setConnectSource(null);
+        setConnectTarget(null);
       }
     }
   }, [clearSelection, createCategoryCard, connectMode]);
 
   // Start connection from a card in connect mode
-  const handleCardConnectStart = useCallback((cardId, position) => {
+  const handleCardConnectStart = useCallback((cardId) => {
     if (connectMode) {
-      setSourceCardId(cardId);
-      setConnectionLine({
-        start: position,
-        end: position
-      });
+      setConnectSource(cardId);
     }
   }, [connectMode]);
 
-  // Update connection line when moving mouse
-  const handleMouseMove = useCallback((e) => {
-    if (connectMode && sourceCardId && connectionLine) {
-      // Koristimo requestAnimationFrame za glatko ažuriranje linije
-      requestAnimationFrame(() => {
-        setConnectionLine({
-          ...connectionLine,
-          end: { x: e.clientX, y: e.clientY }
-        });
-      });
-    }
-  }, [connectMode, sourceCardId, connectionLine]);
-
   // Finish connection on target card
-  const handleCardConnectEnd = useCallback((targetCardId) => {
-    if (connectMode && sourceCardId && sourceCardId !== targetCardId) {
-      connectCards(sourceCardId, targetCardId);
-      setSourceCardId(null);
-      setConnectionLine(null);
+  const handleCardConnectEnd = useCallback((cardId) => {
+    if (connectMode && connectSource && connectSource !== cardId) {
+      setConnectTarget(cardId);
+      connectCards(connectSource, cardId);
+      setConnectSource(null);
+      setConnectTarget(null);
     }
-  }, [connectMode, sourceCardId, connectCards]);
+  }, [connectMode, connectSource, connectCards]);
 
   // Handle card hover
   const handleCardHover = useCallback((cardId) => {
+    // Skip hover effects during zooming for performance
+    if (isZooming) return;
+    
     setHoveredCardId(cardId);
-  }, []);
+    
+    // Find related cards through connections
+    const related = new Set();
+    connections.forEach(conn => {
+      if (conn.sourceId === cardId) {
+        related.add(conn.targetId);
+      } else if (conn.targetId === cardId) {
+        related.add(conn.sourceId);
+      }
+    });
+    
+    setRelatedCardIds(related);
+  }, [connections, isZooming]);
 
   // Clear hover state
   const handleCardLeave = useCallback(() => {
     setHoveredCardId(null);
+    setRelatedCardIds(new Set());
   }, []);
 
-  // Generate grid pattern for canvas background - memorizovano za bolje performanse
-  const renderGrid = useMemo(() => {
-    const gridSize = 50 * zoom;
-    const offsetX = pan.x % gridSize;
-    const offsetY = pan.y % gridSize;
-    
-    return (
-      <svg className="grid-pattern" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="grid" width={gridSize} height={gridSize} patternUnits="userSpaceOnUse">
-            <path 
-              d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`} 
-              fill="none" 
-              stroke="var(--grid-color)" 
-              strokeWidth="1"
-            />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grid)" transform={`translate(${offsetX}, ${offsetY})`} />
-      </svg>
-    );
-  }, [zoom, pan.x, pan.y]);
-
-  // Find cards related to currently hovered card - memorizovano za bolje performanse
-  const relatedCardIds = useMemo(() => {
-    if (!hoveredCardId) return new Set();
-    
-    const relatedIds = new Set();
-    
-    // Find direct connections
-    connections.forEach(conn => {
-      if (conn.sourceId === hoveredCardId) {
-        relatedIds.add(conn.targetId);
-      } else if (conn.targetId === hoveredCardId) {
-        relatedIds.add(conn.sourceId);
-      }
-    });
-    
-    return relatedIds;
-  }, [hoveredCardId, connections]);
-
-  // Calculate visible area for card virtualization - optimizovano
+  // Calculate visible area for card virtualization - optimized
   const isCardVisible = useCallback((cardPosition) => {
+    if (!canvasToScreen) return true;
+    
     const screenPosition = canvasToScreen(cardPosition);
     
     return (
@@ -259,128 +406,329 @@ const Canvas = () => {
     );
   }, [canvasToScreen]);
 
-  // Optimizovano renderovanje vidljivih kartica
+  // Memoized visible cards calculation with chunking for large datasets
   const visibleCards = useMemo(() => {
+    // If we have a lot of cards, use a more efficient filtering approach
+    if (cards.length > 100) {
+      // Create a spatial index for faster lookups (simple quadrant-based approach)
+      const quadrants = {
+        topLeft: [],
+        topRight: [],
+        bottomLeft: [],
+        bottomRight: []
+      };
+      
+      // Determine center of screen in canvas coordinates
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      
+      // Assign cards to quadrants
+      cards.forEach(card => {
+        const screenPos = canvasToScreen ? canvasToScreen(card.position) : card.position;
+        if (screenPos.x < centerX) {
+          if (screenPos.y < centerY) {
+            quadrants.topLeft.push(card);
+          } else {
+            quadrants.bottomLeft.push(card);
+          }
+        } else {
+          if (screenPos.y < centerY) {
+            quadrants.topRight.push(card);
+          } else {
+            quadrants.bottomRight.push(card);
+          }
+        }
+      });
+      
+      // Only check visibility for cards in potentially visible quadrants
+      const visibleQuadrants = [];
+      
+      if (centerX - BUFFER_SIZE <= centerX) visibleQuadrants.push(quadrants.topLeft, quadrants.bottomLeft);
+      if (centerX + BUFFER_SIZE >= centerX) visibleQuadrants.push(quadrants.topRight, quadrants.bottomRight);
+      
+      // Flatten and filter
+      return visibleQuadrants.flat().filter(card => isCardVisible(card.position));
+    }
+    
+    // For smaller datasets, just filter directly
     return cards.filter(card => isCardVisible(card.position));
-  }, [cards, isCardVisible]);
+  }, [cards, isCardVisible, canvasToScreen, forceUpdate]);
 
-  // Optimizovano renderovanje vidljivih konekcija
+  // Memoized visible connections calculation with set-based optimization
   const visibleConnections = useMemo(() => {
+    // During zooming, limit connections for performance
+    if (isZooming && connections.length > 50) {
+      return [];
+    }
+    
+    // Create a set of visible card IDs for faster lookup
+    const visibleCardIds = new Set(visibleCards.map(card => card.id));
+    
     return connections.filter(connection => {
-      const sourceCard = cards.find(card => card.id === connection.sourceId);
-      const targetCard = cards.find(card => card.id === connection.targetId);
-      
-      if (!sourceCard || !targetCard) return false;
-      
-      // Renderuj konekciju samo ako je bar jedna kartica vidljiva
-      return isCardVisible(sourceCard.position) || isCardVisible(targetCard.position);
+      return visibleCardIds.has(connection.sourceId) || visibleCardIds.has(connection.targetId);
     });
-  }, [connections, cards, isCardVisible]);
+  }, [connections, visibleCards, isZooming]);
 
-  // Transformacioni string za kontejnere - memorizovan da izbegne ponovno računanje
+  // Calculate transform style for canvas elements - memoized
   const transformStyle = useMemo(() => {
     return `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`;
-  }, [pan.x, pan.y, zoom]);
+  }, [zoom, pan.x, pan.y]);
 
-  // Stil za canvas
-  const canvasStyle = useMemo(() => {
-    return { 
-      cursor: isPanning ? 'grabbing' : 'grab' 
+  // Memoized grid rendering
+  const renderGrid = useMemo(() => {
+    // Skip detailed grid during zooming for performance
+    if (isZooming && isHighPerformanceMode) {
+      return null;
+    }
+    
+    const gridSize = 50;
+    const offsetX = (pan.x % gridSize);
+    const offsetY = (pan.y % gridSize);
+    
+    return (
+      <div 
+        className="grid-background" 
+        style={{ 
+          position: 'absolute', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
+          height: '100%', 
+          pointerEvents: 'none',
+          backgroundImage: `
+            linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
+          `,
+          backgroundSize: `${gridSize}px ${gridSize}px`,
+          backgroundPosition: `${offsetX}px ${offsetY}px`,
+          opacity: 0.3
+        }}
+      />
+    );
+  }, [pan.x, pan.y, isZooming, isHighPerformanceMode]);
+
+  // Zoom controls
+  const handleZoomIn = useCallback(() => {
+    const center = {
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2
     };
-  }, [isPanning]);
+    handleZoomWithPerformance(-0.3, center);
+  }, [handleZoomWithPerformance]);
+
+  const handleZoomOut = useCallback(() => {
+    const center = {
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2
+    };
+    handleZoomWithPerformance(0.3, center);
+  }, [handleZoomWithPerformance]);
+
+  const handleResetZoom = useCallback(() => {
+    resetView();
+    throttleRender();
+  }, [resetView, throttleRender]);
+
+  // Render connection lines between cards - memoized
+  const renderedConnections = useMemo(() => {
+    // Skip connections during zooming in high performance mode
+    if (isZooming && isHighPerformanceMode) {
+      return null;
+    }
+    
+    return visibleConnections.map((connection) => {
+      const sourceCard = getCardById(connection.sourceId);
+      const targetCard = getCardById(connection.targetId);
+      
+      if (!sourceCard || !targetCard) {
+        return null;
+      }
+      
+      // Check if this connection involves hovered card
+      const isHighlighted = 
+        hoveredCardId && 
+        (connection.sourceId === hoveredCardId || connection.targetId === hoveredCardId);
+      
+      return (
+        <CardConnection
+          key={connection.id}
+          sourcePosition={sourceCard.position}
+          targetPosition={targetCard.position}
+          isHighlighted={isHighlighted}
+        />
+      );
+    });
+  }, [visibleConnections, getCardById, hoveredCardId, isZooming, isHighPerformanceMode]);
+  
+  // Render cards - memoized
+  const renderedCards = useMemo(() => {
+    if (visibleCards.length === 0) {
+      return null;
+    }
+    
+    // Use simplified placeholders during zooming for performance
+    if (isZooming && isHighPerformanceMode) {
+      return visibleCards.map((card) => (
+        <CardPlaceholder 
+          key={card.id} 
+          position={card.position} 
+          type={card.type} 
+        />
+      ));
+    }
+    
+    return visibleCards.map((card) => {
+      const isSelected = selectedCardIds.includes(card.id);
+      const isHovered = card.id === hoveredCardId;
+      const isRelated = relatedCardIds.has(card.id);
+      
+      const cardProps = {
+        card,
+        isSelected,
+        isHovered,
+        isRelated,
+        connectMode,
+        onConnectStart: handleCardConnectStart,
+        onConnectEnd: handleCardConnectEnd,
+        onHover: handleCardHover,
+        onLeave: handleCardLeave
+      };
+      
+      const CardComponent = card.type === 'category' ? CategoryCard : AnswerCard;
+      
+      return (
+        <Suspense key={card.id} fallback={<CardPlaceholder position={card.position} type={card.type} />}>
+          <CardComponent {...cardProps} />
+        </Suspense>
+      );
+    });
+  }, [
+    visibleCards, 
+    selectedCardIds, 
+    hoveredCardId, 
+    relatedCardIds, 
+    connectMode, 
+    handleCardConnectStart, 
+    handleCardConnectEnd, 
+    handleCardHover, 
+    handleCardLeave,
+    isZooming,
+    isHighPerformanceMode
+  ]);
+
+  // Add test cards if none exist
+  useEffect(() => {
+    if (cards.length === 0) {
+      console.log('No cards found, creating test cards...');
+      setTimeout(() => {
+        addCard('category');
+        setTimeout(() => {
+          addCard('answer');
+        }, 100);
+      }, 1000);
+    }
+  }, [cards.length, addCard]);
+
+  // Performance stats
+  const stats = useMemo(() => {
+    return {
+      totalCards: cards.length,
+      visibleCards: visibleCards.length,
+      totalConnections: connections.length,
+      visibleConnections: visibleConnections.length,
+      highPerformanceMode: isHighPerformanceMode ? 'ON' : 'OFF',
+      zoomMode: isZooming ? 'ZOOMING' : 'NORMAL'
+    };
+  }, [
+    cards.length, 
+    visibleCards.length, 
+    connections.length, 
+    visibleConnections.length,
+    isHighPerformanceMode,
+    isZooming
+  ]);
 
   return (
     <div 
-      className={`canvas ${connectMode ? 'connect-mode' : ''}`}
+      className={`canvas-container ${connectMode ? 'connect-mode' : ''} ${isZooming ? 'zooming' : ''}`}
       ref={canvasRef}
       onClick={handleCanvasClick}
-      onMouseMove={handleMouseMove}
-      style={canvasStyle}
+      style={{
+        width: '100%',
+        height: '100vh',
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'radial-gradient(ellipse at center, #0F0F11 0%, #0A0A0C 100%)',
+        cursor: connectMode ? 'crosshair' : isPanning ? 'grabbing' : 'grab'
+      }}
     >
       {/* Grid background */}
       {renderGrid}
       
-      {/* Active connection being drawn */}
-      {connectMode && connectionLine && (
-        <svg className="connection-line-container" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-          <line
-            x1={connectionLine.start.x}
-            y1={connectionLine.start.y}
-            x2={connectionLine.end.x}
-            y2={connectionLine.end.y}
-            stroke="var(--accent-color)"
-            strokeWidth="2"
-            strokeDasharray="5,5"
-          />
-        </svg>
-      )}
-      
-      {/* Card connections */}
-      <div className="connections-container" style={{ transform: transformStyle }}>
-        {visibleConnections.map((connection) => {
-          const sourceCard = cards.find(card => card.id === connection.sourceId);
-          const targetCard = cards.find(card => card.id === connection.targetId);
-          
-          if (!sourceCard || !targetCard) return null;
-          
-          // Check if this connection involves hovered card
-          const isHighlighted = 
-            hoveredCardId && 
-            (connection.sourceId === hoveredCardId || connection.targetId === hoveredCardId);
-          
-          return (
-            <CardConnection 
-              key={connection.id} 
-              sourcePosition={sourceCard.position}
-              targetPosition={targetCard.position}
-              isHighlighted={isHighlighted}
-            />
-          );
-        })}
-      </div>
-      
-      {/* Cards */}
-      <div className="cards-container" style={{ transform: transformStyle }}>
-        {visibleCards.map((card) => {
-          const isSelected = selectedCardIds.includes(card.id);
-          const isHovered = card.id === hoveredCardId;
-          const isRelated = relatedCardIds.has(card.id);
-          
-          const cardProps = {
-            key: card.id,
-            card,
-            isSelected,
-            isHovered,
-            isRelated,
-            connectMode,
-            onConnectStart: handleCardConnectStart,
-            onConnectEnd: handleCardConnectEnd,
-            onHover: handleCardHover,
-            onLeave: handleCardLeave
-          };
-          
-          return card.type === 'category' ? (
-            <CategoryCard {...cardProps} />
-          ) : (
-            <AnswerCard {...cardProps} />
-          );
-        })}
-      </div>
-      
-      {/* Action Bar */}
-      <ActionBar />
-      
-      {/* Connect Mode Indicator */}
-      {connectMode && (
-        <div className="connect-mode-indicator">
-          <span className="connect-icon">🔗</span>
-          <span>Connect Mode</span>
-          <button className="connect-exit-button" onClick={() => setConnectMode(false)}>Exit</button>
+      <div className={`canvas ${isPanning ? 'moving' : ''}`}>
+        {/* Card connections */}
+        <div className="connections-container" style={{ transform: transformStyle }}>
+          {renderedConnections}
         </div>
-      )}
+        
+        {/* Cards */}
+        <div className="cards-container" style={{ transform: transformStyle }}>
+          {renderedCards}
+        </div>
+        
+        {/* Action Bar */}
+        <ActionBar addCard={addCard} setConnectMode={setConnectMode} />
+        
+        {/* Connect Mode Indicator */}
+        {connectMode && (
+          <div className="connect-mode-indicator">
+            <span className="connect-icon">🔗</span>
+            <span>Connect Mode</span>
+            <button className="connect-exit-button" onClick={() => setConnectMode(false)}>Exit</button>
+          </div>
+        )}
+        
+        {/* Zoom controls */}
+        <div className="zoom-controls">
+          <button className="zoom-button" onClick={handleZoomIn} title="Zoom In">+</button>
+          <div className="zoom-level">{Math.round(zoom * 100)}%</div>
+          <button className="zoom-button" onClick={handleZoomOut} title="Zoom Out">−</button>
+          <button className="zoom-button" onClick={handleResetZoom} title="Reset Zoom">⟲</button>
+          <button 
+            className={`zoom-button ${isHighPerformanceMode ? 'active' : ''}`} 
+            onClick={() => setIsHighPerformanceMode(prev => !prev)} 
+            title="Toggle High Performance Mode"
+          >
+            {isHighPerformanceMode ? '⚡' : '⚙️'}
+          </button>
+        </div>
+        
+        {/* Connection line while connecting */}
+        {connectMode && connectSource && (
+          <svg 
+            className="connect-line" 
+            ref={connectLineRef}
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+          >
+            <line 
+              x1="0" 
+              y1="0" 
+              x2="0" 
+              y2="0" 
+              style={{ 
+                stroke: 'var(--accent-color)',
+                strokeWidth: 2,
+                strokeDasharray: '5,5' 
+              }} 
+            />
+          </svg>
+        )}
+        
+        {/* Performance stats - remove in production */}
+        
+      </div>
     </div>
   );
 };
 
-// Optimizovali smo komponentu, ali je ne memoizujemo jer je top-level komponenta
 export default Canvas;

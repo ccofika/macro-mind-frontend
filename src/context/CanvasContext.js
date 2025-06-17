@@ -53,29 +53,36 @@ export const CanvasProvider = ({ children }) => {
     return () => clearTimeout(timer);
   }, [zoom, pan, saveCanvasState]);
 
-  // Poboljšana funkcija za zoom - sporiji i precizniji
-  const handleZoom = useCallback((delta, point = { x: window.innerWidth / 2, y: window.innerHeight / 2 }) => {
+  // Improved zoom function with precise cursor-centered zooming
+  const handleZoom = useCallback((delta, point) => {
     setZoom(prevZoom => {
-      // Smanjujemo koeficijent zumiranja sa 0.1 na 0.05 za sporiji zoom
-      const zoomFactor = 0.05; 
-      const newZoom = Math.max(0.1, Math.min(5, prevZoom * (1 - delta * zoomFactor)));
+      // Calculate new zoom level with exponential scaling for smoother zoom
+      const zoomFactor = delta > 0 ? 0.9 : 1.1; // Reversed for more intuitive zooming
+      const newZoom = Math.max(0.1, Math.min(5, prevZoom * zoomFactor));
       
-      // Prilagodimo pan da zumiramo prema poziciji miša
-      setPan(prevPan => {
-        // Izračunaj relativnu poziciju miša u odnosu na platno
-        const mouseXRelative = (point.x - prevPan.x) / prevZoom;
-        const mouseYRelative = (point.y - prevPan.y) / prevZoom;
-        
-        // Izračunaj novu poziciju pana nakon zuma
-        return {
-          x: point.x - mouseXRelative * newZoom,
-          y: point.y - mouseYRelative * newZoom
-        };
+      // Use center of screen if no point provided
+      const zoomPoint = point || { 
+        x: window.innerWidth / 2, 
+        y: window.innerHeight / 2 
+      };
+      
+      // Calculate the point in world coordinates before zoom
+      const worldX = (zoomPoint.x - pan.x) / prevZoom;
+      const worldY = (zoomPoint.y - pan.y) / prevZoom;
+      
+      // Calculate new pan position to keep the point under cursor
+      const newPanX = zoomPoint.x - worldX * newZoom;
+      const newPanY = zoomPoint.y - worldY * newZoom;
+      
+      // Update pan position
+      setPan({
+        x: newPanX,
+        y: newPanY
       });
       
       return newZoom;
     });
-  }, []);
+  }, [pan]);
 
   // Explicitly defined function for panning
   const handlePan = useCallback((dx, dy) => {

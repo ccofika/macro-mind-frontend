@@ -7,7 +7,7 @@ export const useDragAndDrop = (id, initialPosition) => {
   const [position, setPosition] = useState(initialPosition);
   
   const { screenToCanvas, zoom = 1 } = useCanvas();
-  const { moveCard, finalizeMoveCard, selectCard, selectedCards } = useCards();
+  const { moveCard, finalizeMoveCard, selectCard, selectedCardIds } = useCards();
   
   // Refs for tracking drag state without re-renders
   const dragStateRef = useRef({
@@ -199,15 +199,15 @@ export const useDragAndDrop = (id, initialPosition) => {
   
   // Handle multi-select dragging
   useEffect(() => {
-    if (isDragging && selectedCards && selectedCards.length > 1) {
+    if (isDragging && selectedCardIds && selectedCardIds.length > 1) {
       // If this card is part of a multi-selection, other selected cards should move too
-      const isSelected = selectedCards.includes(id);
+      const isSelected = selectedCardIds.includes(id);
       if (isSelected) {
         // The movement logic is handled in CardContext for all selected cards
         // This ensures synchronized movement
       }
     }
-  }, [isDragging, selectedCards, id]);
+  }, [isDragging, selectedCardIds, id]);
   
   return {
     position,
