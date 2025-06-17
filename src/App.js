@@ -1,23 +1,24 @@
-import logo from './logo.svg';
+import React from 'react';
 import './App.css';
+import Canvas from './components/Canvas/Canvas';
+import NavBar from './components/NavBar/NavBar';
+import ActionBar from './components/ActionBar/ActionBar';
+import { CanvasProvider } from './context/CanvasContext';
+import { CardProvider } from './context/CardContext';
+import { AIProvider } from './context/AIContext';
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <CanvasProvider>
+        <CardProvider>
+          <AIProvider>
+            <NavBar />
+            <Canvas />
+            {/* ActionBar is now included directly in Canvas for better positioning */}
+          </AIProvider>
+        </CardProvider>
+      </CanvasProvider>
     </div>
   );
 }
