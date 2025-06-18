@@ -25,28 +25,16 @@ const getDeviceCapabilities = () => {
 };
 
 export const useZoomAndPan = (canvasRef) => {
-  const { zoom, pan, setZoom, setPan, setIsDragging } = useCanvas();
+  const { zoom, pan, handleZoom: contextHandleZoom, handlePan: contextHandlePan, setIsDragging } = useCanvas();
   
   // Device capabilities for adaptive performance
   const deviceCapabilities = useMemo(() => getDeviceCapabilities(), []);
   
   // Performance-optimized refs
-  const animationRef = useRef(null);
   const wheelTimeoutRef = useRef(null);
   const lastWheelTime = useRef(0);
   const velocityRef = useRef({ x: 0, y: 0, zoom: 0 });
   const inertiaRef = useRef(null);
-  
-  // Smooth animation state
-  const animationState = useRef({
-    targetZoom: zoom || 1,
-    currentZoom: zoom || 1,
-    targetPan: pan || { x: 0, y: 0 },
-    currentPan: pan || { x: 0, y: 0 },
-    isAnimating: false,
-    startTime: 0,
-    duration: 0
-  });
   
   // Touch state for better gesture recognition
   const touchState = useRef({
@@ -60,117 +48,11 @@ export const useZoomAndPan = (canvasRef) => {
 
   // Performance settings based on device capabilities
   const performanceConfig = useMemo(() => ({
-    animationDuration: deviceCapabilities.hasReducedMotion ? 0 : 
-                      deviceCapabilities.isHighPerformance ? 300 : 500,
-    smoothingFactor: deviceCapabilities.isHighPerformance ? 0.2 : 0.15,
-    maxFPS: deviceCapabilities.isHighPerformance ? 120 : 60,
     enableInertia: !deviceCapabilities.isMobile || deviceCapabilities.isHighPerformance,
-    enableGPUAcceleration: deviceCapabilities.hasWebGL,
     wheelDebounceMs: deviceCapabilities.isMobile ? 50 : 16
   }), [deviceCapabilities]);
 
-  // Zoom constraints with smooth boundaries
-  const ZOOM_CONSTRAINTS = {
-    min: 0.05,
-    max: 8.0,
-    elasticRange: 0.1 // Allow temporary overshoot for smooth boundaries
-  };
-
-  // Optimized apply transform with GPU acceleration
-  const applyTransform = useCallback((targetZoom, targetPan, immediate = false) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    if (immediate || deviceCapabilities.hasReducedMotion) {
-      // Immediate update
-      animationState.current.currentZoom = targetZoom;
-      animationState.current.currentPan = { ...targetPan };
-      setZoom(targetZoom);
-      setPan(targetPan);
-      
-      // Apply GPU-accelerated transform
-      if (performanceConfig.enableGPUAcceleration) {
-        canvas.style.transform = `translate3d(${targetPan.x}px, ${targetPan.y}px, 0) scale(${targetZoom})`;
-        canvas.style.willChange = 'transform';
-      }
-    } else {
-      // Smooth animation
-      animationState.current.targetZoom = targetZoom;
-      animationState.current.targetPan = { ...targetPan };
-      
-      if (!animationState.current.isAnimating) {
-        startAnimation();
-      }
-    }
-  }, [canvasRef, deviceCapabilities, performanceConfig, setZoom, setPan]);
-
-  // High-performance animation loop with adaptive framerate
-  const animate = useCallback((timestamp) => {
-    const state = animationState.current;
-    
-    if (!state.isAnimating) return;
-    
-    const elapsed = timestamp - state.startTime;
-    const progress = Math.min(elapsed / performanceConfig.animationDuration, 1);
-    
-    // Use advanced easing for ultra-smooth motion
-    const easedProgress = deviceCapabilities.isHighPerformance ? 
-      EASING.easeOutExpo(progress) : EASING.easeOutCubic(progress);
-    
-    // Interpolate zoom with sub-pixel precision
-    const zoomDiff = state.targetZoom - state.currentZoom;
-    const newZoom = state.currentZoom + (zoomDiff * easedProgress);
-    
-    // Interpolate pan with sub-pixel precision
-    const panXDiff = state.targetPan.x - state.currentPan.x;
-    const panYDiff = state.targetPan.y - state.currentPan.y;
-    const newPan = {
-      x: state.currentPan.x + (panXDiff * easedProgress),
-      y: state.currentPan.y + (panYDiff * easedProgress)
-    };
-    
-    // Update current values
-    state.currentZoom = newZoom;
-    state.currentPan = newPan;
-    
-    // Apply to React state (batched updates)
-    setZoom(newZoom);
-    setPan(newPan);
-    
-    // GPU-accelerated visual update
-    if (performanceConfig.enableGPUAcceleration && canvasRef.current) {
-      canvasRef.current.style.transform = `translate3d(${newPan.x}px, ${newPan.y}px, 0) scale(${newZoom})`;
-    }
-    
-    // Continue animation or finish
-    if (progress < 1) {
-      animationRef.current = requestAnimationFrame(animate);
-    } else {
-      state.isAnimating = false;
-      // Clean up GPU hints when not animating
-      if (canvasRef.current) {
-        canvasRef.current.style.willChange = 'auto';
-      }
-    }
-  }, [performanceConfig, deviceCapabilities, canvasRef, setZoom, setPan]);
-
-  const startAnimation = useCallback(() => {
-    const state = animationState.current;
-    
-    if (state.isAnimating) return;
-    
-    state.isAnimating = true;
-    state.startTime = performance.now();
-    
-    // Enable GPU acceleration hints
-    if (performanceConfig.enableGPUAcceleration && canvasRef.current) {
-      canvasRef.current.style.willChange = 'transform';
-    }
-    
-    animationRef.current = requestAnimationFrame(animate);
-  }, [animate, performanceConfig, canvasRef]);
-
-  // Advanced zoom with momentum and elastic boundaries
+  // Enhanced zoom with momentum and better delta handling
   const handleZoom = useCallback((delta, mousePos, immediate = false) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -183,64 +65,24 @@ export const useZoomAndPan = (canvasRef) => {
     const momentum = Math.max(0.1, Math.min(2.0, 60 / Math.max(timeDelta, 16)));
     const adjustedDelta = delta * momentum;
     
-    // Current values
-    const currentZoom = animationState.current.targetZoom;
-    const currentPan = animationState.current.targetPan;
+    // Enhanced delta smoothing for ultra-smooth zoom
+    const smoothedDelta = Math.sign(adjustedDelta) * Math.min(Math.abs(adjustedDelta), 0.5);
     
-    // Exponential zoom factor for consistent feel across zoom levels
-    const zoomFactor = adjustedDelta > 0 ? 
-      Math.pow(0.9, Math.abs(adjustedDelta)) : 
-      Math.pow(1.1, Math.abs(adjustedDelta));
-    
-    let newZoom = currentZoom * zoomFactor;
-    
-    // Elastic boundaries - allow temporary overshoot
-    const elasticMin = ZOOM_CONSTRAINTS.min * (1 - ZOOM_CONSTRAINTS.elasticRange);
-    const elasticMax = ZOOM_CONSTRAINTS.max * (1 + ZOOM_CONSTRAINTS.elasticRange);
-    
-    if (newZoom < elasticMin) {
-      newZoom = elasticMin + (newZoom - elasticMin) * 0.1; // Rubber band effect
-    } else if (newZoom > elasticMax) {
-      newZoom = elasticMax + (newZoom - elasticMax) * 0.1; // Rubber band effect
-    }
-    
-    // Mouse position relative to canvas with high precision
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = (mousePos.x - rect.left) * deviceCapabilities.devicePixelRatio;
-    const mouseY = (mousePos.y - rect.top) * deviceCapabilities.devicePixelRatio;
-    
-    // Calculate the world point under the mouse with sub-pixel precision
-    const worldX = (mouseX - currentPan.x) / currentZoom;
-    const worldY = (mouseY - currentPan.y) / currentZoom;
-    
-    // Calculate new pan to keep the same world point under the mouse
-    const newPan = {
-      x: mouseX - worldX * newZoom,
-      y: mouseY - worldY * newZoom
-    };
-    
-    // Store velocity for inertia
-    velocityRef.current.zoom = (newZoom - currentZoom) / Math.max(timeDelta, 16) * 1000;
-    
-    applyTransform(newZoom, newPan, immediate);
-  }, [canvasRef, deviceCapabilities, applyTransform]);
+    // Use context zoom function with enhanced delta
+    contextHandleZoom(smoothedDelta, mousePos);
+  }, [canvasRef, contextHandleZoom]);
 
   // Enhanced pan with inertia and momentum
   const handlePan = useCallback((dx, dy, immediate = false) => {
-    const currentPan = animationState.current.targetPan;
-    const newPan = {
-      x: currentPan.x + dx,
-      y: currentPan.y + dy
-    };
-    
     // Store velocity for inertia
     const currentTime = performance.now();
     velocityRef.current.x = dx / 16 * 1000; // pixels per second
     velocityRef.current.y = dy / 16 * 1000;
     velocityRef.current.lastUpdate = currentTime;
     
-    applyTransform(animationState.current.targetZoom, newPan, immediate);
-  }, [applyTransform]);
+    // Use context pan function
+    contextHandlePan(dx, dy);
+  }, [contextHandlePan]);
 
   // Inertia effect for smooth momentum after pan/zoom ends
   const startInertia = useCallback(() => {
@@ -274,6 +116,8 @@ export const useZoomAndPan = (canvasRef) => {
 
   // Debounced wheel handler for smooth scrolling
   const debouncedWheelHandler = useCallback((e) => {
+    e.preventDefault();
+    
     clearTimeout(wheelTimeoutRef.current);
     
     // Normalize wheel delta with higher precision
@@ -392,18 +236,6 @@ export const useZoomAndPan = (canvasRef) => {
     }
   }, [handleZoom, handlePan, deviceCapabilities, setIsDragging, startInertia]);
 
-  // Sync animation state with context values
-  useEffect(() => {
-    animationState.current.currentZoom = zoom || 1;
-    animationState.current.targetZoom = zoom || 1;
-  }, [zoom]);
-  
-  useEffect(() => {
-    const newPan = pan || { x: 0, y: 0 };
-    animationState.current.currentPan = newPan;
-    animationState.current.targetPan = newPan;
-  }, [pan]);
-
   // Enhanced event listeners with passive events for better performance
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -467,8 +299,8 @@ export const useZoomAndPan = (canvasRef) => {
           handleZoom(0.3, center); // Smooth zoom out
         } else if (e.key === '0') {
           e.preventDefault();
-          // Reset to 100% zoom smoothly
-          applyTransform(1, { x: 0, y: 0 });
+          // Reset to 100% zoom smoothly - use context function
+          contextHandleZoom(-1, center); // Reset zoom
         }
       }
     };
@@ -491,12 +323,6 @@ export const useZoomAndPan = (canvasRef) => {
 
     // Cleanup
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      if (inertiaRef.current) {
-        cancelAnimationFrame(inertiaRef.current);
-      }
       if (wheelTimeoutRef.current) {
         clearTimeout(wheelTimeoutRef.current);
       }
@@ -510,12 +336,6 @@ export const useZoomAndPan = (canvasRef) => {
       canvas.removeEventListener('touchend', handleTouchGestures);
       canvas.removeEventListener('touchcancel', handleTouchGestures);
       window.removeEventListener('keydown', handleKeyDown);
-      
-      // Clean up GPU acceleration hints
-      if (canvas) {
-        canvas.style.willChange = 'auto';
-        canvas.style.transform = '';
-      }
     };
   }, [
     canvasRef, 
@@ -524,49 +344,14 @@ export const useZoomAndPan = (canvasRef) => {
     handleZoom, 
     handlePan, 
     setIsDragging, 
-    startInertia, 
-    applyTransform,
-    deviceCapabilities
+    startInertia,
+    contextHandleZoom
   ]);
-
-  // Public API for programmatic control
-  const zoomTo = useCallback((targetZoom, center, immediate = false) => {
-    const clampedZoom = Math.max(ZOOM_CONSTRAINTS.min, Math.min(ZOOM_CONSTRAINTS.max, targetZoom));
-    
-    if (center) {
-      // Zoom to specific point
-      const currentPan = animationState.current.targetPan;
-      const currentZoom = animationState.current.targetZoom;
-      
-      const worldX = (center.x - currentPan.x) / currentZoom;
-      const worldY = (center.y - currentPan.y) / currentZoom;
-      
-      const newPan = {
-        x: center.x - worldX * clampedZoom,
-        y: center.y - worldY * clampedZoom
-      };
-      
-      applyTransform(clampedZoom, newPan, immediate);
-    } else {
-      applyTransform(clampedZoom, animationState.current.targetPan, immediate);
-    }
-  }, [applyTransform]);
-
-  const panTo = useCallback((targetPan, immediate = false) => {
-    applyTransform(animationState.current.targetZoom, targetPan, immediate);
-  }, [applyTransform]);
-
-  const resetView = useCallback((immediate = false) => {
-    applyTransform(1, { x: 0, y: 0 }, immediate);
-  }, [applyTransform]);
 
   return { 
     handleZoom, 
     handlePan, 
-    zoomTo, 
-    panTo, 
-    resetView,
-    isAnimating: animationState.current.isAnimating,
+    startInertia,
     deviceCapabilities,
     performanceConfig
   };
