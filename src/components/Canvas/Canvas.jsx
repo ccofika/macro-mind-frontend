@@ -416,6 +416,7 @@ const Canvas = () => {
   // Finish connection on target card
   const handleCardConnectEnd = useCallback((cardId) => {
     if (connectMode && connectSource && connectSource !== cardId) {
+      console.log('Canvas: Creating connection from', connectSource, 'to', cardId);
       setConnectTarget(cardId);
       connectCards(connectSource, cardId);
       setConnectSource(null);

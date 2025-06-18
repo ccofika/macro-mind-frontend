@@ -1,3 +1,5 @@
+import { aiApi } from './api';
+
 // Fallback funkcija za lokalno poboljšanje teksta
 const fallbackImprovement = (originalText, improvements) => {
   if (!originalText) return 'Please provide original text to improve.';
@@ -97,3 +99,40 @@ const fallbackImprovement = (originalText, improvements) => {
   // Dodaj napomenu
   return `${transformedText}\n\n[This is a fallback response as the AI service is currently unavailable.]`;
 };
+
+// Glavna funkcija za poboljšanje teksta
+const improveResponse = async (originalText, improvements, systemPrompt, userPrompt) => {
+  try {
+    console.log('Calling AI service to improve response...');
+    
+    // Pozovi backend API
+    const response = await aiApi.improveResponse({
+      originalText,
+      improvements,
+      systemPrompt,
+      userPrompt
+    });
+    
+    console.log('AI service response received:', response.data);
+    
+    if (response.data && response.data.improvedText) {
+      return response.data.improvedText;
+    } else {
+      throw new Error('No improved text received from AI service');
+    }
+  } catch (error) {
+    console.error('AI service error:', error);
+    
+    // Ako backend ne radi, koristi fallback
+    console.log('Using fallback improvement...');
+    return fallbackImprovement(originalText, improvements);
+  }
+};
+
+// Izvozi objekt sa funkcijama
+export const aiService = {
+  improveResponse,
+  fallbackImprovement
+};
+
+export default aiService;

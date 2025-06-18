@@ -247,18 +247,27 @@ export const CardProvider = ({ children }) => {
 
   // Connect cards - moved before createCard to avoid dependency issue
   const connectCards = useCallback(async (sourceId, targetId) => {
+    console.log('CardContext: connectCards called:', { sourceId, targetId, currentSpaceId });
+    
     // Verify cards exist
     const sourceExists = cards.some(c => c.id === sourceId);
     const targetExists = cards.some(c => c.id === targetId);
     
-    if (!sourceExists || !targetExists) return false;
+    if (!sourceExists || !targetExists) {
+      console.log('CardContext: connectCards failed - cards do not exist');
+      return false;
+    }
     
-    // Check if connection already exists
+    // Check if connection already exists (bidirectional)
     const connectionExists = connections.some(
-      c => c.sourceId === sourceId && c.targetId === targetId
+      c => (c.sourceId === sourceId && c.targetId === targetId) ||
+           (c.sourceId === targetId && c.targetId === sourceId)
     );
     
-    if (connectionExists) return false;
+    if (connectionExists) {
+      console.log('CardContext: connectCards failed - connection already exists');
+      return false;
+    }
     
     const newConnection = {
       id: uuidv4(),
@@ -275,7 +284,11 @@ export const CardProvider = ({ children }) => {
     try {
       // Create on server with current space
       const spaceId = currentSpaceId || 'public';
+      console.log('CardContext: Creating connection on server:', { sourceId, targetId, spaceId });
+      
       const savedConnection = await connectionApi.createConnection(sourceId, targetId, spaceId);
+      
+      console.log('CardContext: Connection created on server:', savedConnection);
       
       // Update local state with server-generated ID
       setConnections(prev => prev.map(conn => 
@@ -285,9 +298,10 @@ export const CardProvider = ({ children }) => {
       ));
       
       // Notify other users via websocket
+      console.log('CardContext: Notifying other users of connection creation');
       websocketService.notifyConnectionCreated(savedConnection);
     } catch (err) {
-      console.error("Failed to create connection on server:", err);
+      console.error("CardContext: Failed to create connection on server:", err);
       // Connection still exists locally
     }
     
@@ -543,12 +557,20 @@ export const CardProvider = ({ children }) => {
 
   // Remove connection
   const removeConnection = useCallback(async (sourceId, targetId) => {
-    // Find the connection to get its ID
+    console.log('CardContext: removeConnection called:', { sourceId, targetId });
+    
+    // Find the connection to get its ID (bidirectional search)
     const connection = connections.find(
-      c => c.sourceId === sourceId && c.targetId === targetId
+      c => (c.sourceId === sourceId && c.targetId === targetId) ||
+           (c.sourceId === targetId && c.targetId === sourceId)
     );
     
-    if (!connection) return;
+    if (!connection) {
+      console.log('CardContext: removeConnection failed - connection not found');
+      return;
+    }
+    
+    console.log('CardContext: Found connection to remove:', connection);
     
     setConnections(prev => {
       const newConnections = prev.filter(
@@ -560,12 +582,14 @@ export const CardProvider = ({ children }) => {
     
     try {
       // Delete on server
+      console.log('CardContext: Deleting connection on server:', connection.id);
       await connectionApi.deleteConnection(connection.id);
       
       // Notify other users via websocket
+      console.log('CardContext: Notifying other users of connection deletion');
       websocketService.notifyConnectionDeleted(connection.id);
     } catch (err) {
-      console.error("Failed to delete connection on server:", err);
+      console.error("CardContext: Failed to delete connection on server:", err);
       // Connection is still removed locally
     }
   }, [cards, connections, addToHistory]);

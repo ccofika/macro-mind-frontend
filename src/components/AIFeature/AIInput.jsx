@@ -21,6 +21,22 @@ const AIInput = ({ cardId }) => {
     }
   };
 
+  // Handle AI input events to prevent interference with shortcuts
+  const handleInputKeyDown = (e) => {
+    // Stop propagation of all key events to prevent triggering shortcuts
+    e.stopPropagation();
+  };
+
+  const handleInputClick = (e) => {
+    // Prevent card selection when clicking inside AI input
+    e.stopPropagation();
+  };
+
+  const handleInputMouseDown = (e) => {
+    // Prevent card dragging when interacting with AI input
+    e.stopPropagation();
+  };
+
   return (
     <div className="ai-input-container">
       <form onSubmit={handleSubmit}>
@@ -39,6 +55,9 @@ const AIInput = ({ cardId }) => {
             placeholder="Describe improvements needed..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onClick={handleInputClick}
+            onMouseDown={handleInputMouseDown}
+            onKeyDown={handleInputKeyDown}
             disabled={loading}
           />
           <button 

@@ -228,4 +228,20 @@ export const canvasApi = {
   }
 };
 
+// AI-related API calls
+export const aiApi = {
+  // Improve response using AI
+  improveResponse: async (data) => {
+    try {
+      console.log('Making API call to /ai/improve with data:', data);
+      const response = await api.post('/ai/improve', data);
+      console.log('AI API response:', response.data);
+      return response;
+    } catch (error) {
+      console.error('Failed to improve response with AI:', error);
+      throw error;
+    }
+  }
+};
+
 export default api;

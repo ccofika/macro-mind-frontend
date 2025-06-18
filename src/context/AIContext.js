@@ -6,7 +6,13 @@ import { AGENT_GUIDELINES } from '../data/agentGuidelines';
 
 const AIContext = createContext();
 
-export const useAI = () => useContext(AIContext);
+export const useAI = () => {
+  const context = useContext(AIContext);
+  if (!context) {
+    throw new Error('useAI must be used within an AIProvider');
+  }
+  return context;
+};
 
 export const AIProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
@@ -17,6 +23,7 @@ export const AIProvider = ({ children }) => {
   const { cards, updateCard, createAnswerCard } = useCards();
 
   const improveResponse = useCallback(async (cardId, improvements) => {
+    console.log('AIContext: Starting improveResponse for card:', cardId);
     setLoading(true);
     setError(null);
     setAiResponse(null);
@@ -24,9 +31,12 @@ export const AIProvider = ({ children }) => {
     
     try {
       const card = cards.find(c => c.id === cardId);
-      if (!card) throw new Error('Card not found');
+      if (!card) {
+        throw new Error('Card not found');
+      }
       
-      console.log(`Sending AI request for card ${cardId} with improvements: ${improvements}`);
+      console.log(`AIContext: Found card ${cardId}, content length: ${(card.content || '').length}`);
+      console.log(`AIContext: Improvements requested: ${improvements}`);
       
       try {
         // Koristimo sažetak smernica
@@ -37,6 +47,7 @@ export const AIProvider = ({ children }) => {
           
           Always ensure paragraphs are properly separated with double line breaks (\\n\\n).
           Address the specific improvements requested without adding meta-commentary.
+          Always respond in English only, regardless of the input language.
         `;
 
         const userPrompt = `
@@ -50,6 +61,8 @@ export const AIProvider = ({ children }) => {
           Use double line breaks between paragraphs and logical sections.
         `;
         
+        console.log('AIContext: Calling aiService.improveResponse...');
+        
         const improvedText = await aiService.improveResponse(
           card.content || '', 
           improvements,
@@ -61,26 +74,28 @@ export const AIProvider = ({ children }) => {
           throw new Error('Empty response from AI service');
         }
         
+        console.log(`AIContext: AI service returned response, length: ${improvedText.length}`);
+        
         // Obrada odgovora za pravilno formatiranje
         const processedResponse = processAIResponse(improvedText);
-        console.log(`AI response received, length: ${processedResponse.length}`);
+        console.log(`AIContext: Processed response, final length: ${processedResponse.length}`);
         setAiResponse(processedResponse);
       } catch (serviceError) {
-        console.error('AI service error:', serviceError);
+        console.error('AIContext: AI service error:', serviceError);
         setError(`AI service error: ${serviceError.message}`);
         
         const fallbackText = `
-          I couldn't properly improve this text due to a service error.
+          I couldn't properly improve this text due to a service error: ${serviceError.message}
           
           Original text:
           ${card.content || ''}
           
-          [Note: The AI service is currently unavailable. Please try again later.]
+          [Note: The AI service encountered an error. Please try again later.]
         `;
         setAiResponse(fallbackText);
       }
     } catch (err) {
-      console.error('Error in improveResponse:', err);
+      console.error('AIContext: Error in improveResponse:', err);
       setError(err.message || 'Failed to get AI response');
     } finally {
       setLoading(false);
@@ -106,19 +121,26 @@ export const AIProvider = ({ children }) => {
   };
 
   const createCardFromAIResponse = useCallback((mousePosition) => {
-    if (!aiResponse || !activeCardId) return;
+    if (!aiResponse || !activeCardId) {
+      console.warn('AIContext: Cannot create card - no AI response or active card ID');
+      return;
+    }
     
     const sourceCard = cards.find(c => c.id === activeCardId);
-    if (!sourceCard) return;
+    if (!sourceCard) {
+      console.warn('AIContext: Cannot create card - source card not found');
+      return;
+    }
     
     // Čišćenje AI odgovora od meta-oznaka
     let cleanedResponse = aiResponse
       .replace(/\[Note: The AI service is currently unavailable.*?\]/g, '')
       .replace(/\[This is a fallback response.*?\]/g, '')
+      .replace(/\[Note: The AI service encountered an error.*?\]/g, '')
       .replace(/IMPROVED VERSION:\s*/g, '')
       .trim();
     
-    console.log(`Creating new card from AI response, length: ${cleanedResponse.length}`);
+    console.log(`AIContext: Creating new card from AI response, cleaned length: ${cleanedResponse.length}`);
     
     // Kreiramo naslov koji ukazuje na poboljšanu verziju
     const title = `AI: ${sourceCard.title}`;
@@ -132,6 +154,7 @@ export const AIProvider = ({ children }) => {
   }, [aiResponse, activeCardId, cards, createAnswerCard]);
 
   const clearAIResponse = useCallback(() => {
+    console.log('AIContext: Clearing AI response');
     setAiResponse(null);
     setActiveCardId(null);
     setError(null);

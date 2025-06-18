@@ -18,7 +18,8 @@ const AIResponse = ({ response, cardPosition }) => {
   };
 
   // Copy AI response to clipboard
-  const handleCopy = () => {
+  const handleCopy = (e) => {
+    e.stopPropagation(); // Prevent event bubbling
     const cleanedResponse = cleanResponse(response);
     navigator.clipboard.writeText(cleanedResponse)
       .then(() => {
@@ -31,7 +32,8 @@ const AIResponse = ({ response, cardPosition }) => {
   };
 
   // Create card from AI response
-  const handleCreateCard = () => {
+  const handleCreateCard = (e) => {
+    e.stopPropagation(); // Prevent event bubbling
     // Izračunaj poziciju nove kartice - malo offsetovano u odnosu na originalnu
     const newPosition = {
       x: cardPosition.x + 80,
@@ -41,8 +43,21 @@ const AIResponse = ({ response, cardPosition }) => {
     createCardFromAIResponse(newPosition);
   };
 
+  // Handle click events on AI response container
+  const handleContainerClick = (e) => {
+    e.stopPropagation(); // Prevent card selection when clicking AI response
+  };
+
+  const handleContainerMouseDown = (e) => {
+    e.stopPropagation(); // Prevent card dragging when interacting with AI response
+  };
+
   return (
-    <div className="ai-response">
+    <div 
+      className="ai-response"
+      onClick={handleContainerClick}
+      onMouseDown={handleContainerMouseDown}
+    >
       <div className="ai-response-header">
         <span className="ai-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -67,7 +82,7 @@ const AIResponse = ({ response, cardPosition }) => {
             ) : (
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"></path>
               </svg>
             )}
           </button>

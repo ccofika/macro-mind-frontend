@@ -48,6 +48,9 @@ const AnswerCard = ({
   const [isCopied, setIsCopied] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const cardRef = useRef(null);
+  const titleInputRef = useRef(null);
+  const contentTextareaRef = useRef(null);
+  
   const { selectCard, updateCard, updateCardDebounced, createCard, getConnectedCards } = useCards();
   const { aiResponse, activeCardId, clearAIResponse } = useAI();
   const { 
@@ -80,10 +83,10 @@ const AnswerCard = ({
     }
   }, [isExpanded, activeCardId, card.id, clearAIResponse]);
 
-  // Handle ESC key to minimize
+  // Handle ESC key to minimize (only when not editing)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isExpanded) {
+      if (e.key === 'Escape' && isExpanded && !isEditingTitle && document.activeElement !== contentTextareaRef.current) {
         setIsExpanded(false);
       }
     };
@@ -92,7 +95,7 @@ const AnswerCard = ({
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isExpanded]);
+  }, [isExpanded, isEditingTitle]);
 
   // Handle click on card
   const handleCardClick = (e) => {
@@ -126,8 +129,13 @@ const AnswerCard = ({
     }
   };
   
-  // Handle double click to toggle expand
+  // Handle double click to toggle expand - but prevent if clicking on editable areas
   const handleDoubleClick = (e) => {
+    // Don't expand/collapse if we're clicking on title text or content area when expanded
+    if (isExpanded && (e.target.closest('.card-title') || e.target.closest('.content-textarea'))) {
+      return;
+    }
+    
     e.stopPropagation();
     
     // Check if card is locked by another user
@@ -147,6 +155,49 @@ const AnswerCard = ({
     // Update local state with debounced server/websocket updates
     updateCardDebounced(card.id, { title: newTitle });
   };
+
+  // Handle title edit mode
+  const handleTitleDoubleClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (isExpanded && !isCardLockedByOthers(card.id)) {
+      setIsEditingTitle(true);
+    }
+  };
+
+  // Handle title input events to prevent interference with shortcuts
+  const handleTitleInputKeyDown = (e) => {
+    // Stop propagation of all key events to prevent triggering shortcuts
+    e.stopPropagation();
+    
+    // Handle specific keys
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      setIsEditingTitle(false);
+      titleInputRef.current?.blur();
+    }
+  };
+
+  const handleTitleInputClick = (e) => {
+    // Prevent card selection when clicking inside title input
+    e.stopPropagation();
+  };
+
+  const handleTitleInputMouseDown = (e) => {
+    // Prevent card dragging when interacting with title input
+    e.stopPropagation();
+  };
+
+  const handleTitleInputBlur = () => {
+    setIsEditingTitle(false);
+  };
+
+  // Focus title input when entering edit mode
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
   
   // Handle content edit with debouncing
   const [localContent, setLocalContent] = useState(card.content || '');
@@ -173,6 +224,22 @@ const AnswerCard = ({
       updateCardDebounced(card.id, { content: newContent });
       debouncedUpdateRef.current = null;
     }, 300);
+  };
+
+  // Handle content textarea events to prevent interference with shortcuts
+  const handleContentKeyDown = (e) => {
+    // Stop propagation of all key events to prevent triggering shortcuts
+    e.stopPropagation();
+  };
+
+  const handleContentClick = (e) => {
+    // Prevent card selection when clicking inside content textarea
+    e.stopPropagation();
+  };
+
+  const handleContentMouseDown = (e) => {
+    // Prevent card dragging when interacting with content textarea
+    e.stopPropagation();
   };
   
   // Cleanup on unmount
@@ -296,21 +363,21 @@ const AnswerCard = ({
         </span>
         {isExpanded && isEditingTitle && !isLockedByOthers ? (
           <input
+            ref={titleInputRef}
             type="text"
             className="card-title-input"
             value={card.title}
             onChange={handleTitleChange}
-            onBlur={() => setIsEditingTitle(false)}
-            onClick={(e) => e.stopPropagation()}
+            onBlur={handleTitleInputBlur}
+            onClick={handleTitleInputClick}
+            onMouseDown={handleTitleInputMouseDown}
+            onKeyDown={handleTitleInputKeyDown}
             autoFocus
           />
         ) : (
           <div 
             className="card-title" 
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              if (isExpanded && !isLockedByOthers) setIsEditingTitle(true);
-            }}
+            onDoubleClick={handleTitleDoubleClick}
           >
             {card.title}
           </div>
@@ -332,11 +399,14 @@ const AnswerCard = ({
           <div className="card-content">
             <div className="content-wrapper">
               <textarea
+                ref={contentTextareaRef}
                 className="content-textarea"
                 value={localContent}
                 onChange={handleContentChange}
+                onClick={handleContentClick}
+                onMouseDown={handleContentMouseDown}
+                onKeyDown={handleContentKeyDown}
                 placeholder="Enter your macro response here..."
-                onClick={(e) => e.stopPropagation()}
                 disabled={isLockedByOthers}
               />
               <button 

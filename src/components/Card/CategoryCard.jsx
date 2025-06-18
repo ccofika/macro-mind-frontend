@@ -64,6 +64,8 @@ const CategoryCard = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const cardRef = useRef(null);
+  const titleInputRef = useRef(null);
+  
   const { selectCard, updateCard, updateCardDebounced, createCard, getConnectedCards } = useCards();
   const { 
     isCardLockedByMe, 
@@ -121,8 +123,13 @@ const CategoryCard = ({
     }
   };
   
-  // Handle double click to toggle expand
+  // Handle double click to toggle expand - but prevent if clicking on title input area
   const handleDoubleClick = (e) => {
+    // Don't expand/collapse if we're clicking on title text when expanded - allow title editing instead
+    if (isExpanded && e.target.closest('.card-title')) {
+      return;
+    }
+    
     e.stopPropagation();
     
     // Check if card is locked by another user
@@ -142,6 +149,49 @@ const CategoryCard = ({
     // Update local state with debounced server/websocket updates
     updateCardDebounced(card.id, { title: newTitle });
   };
+
+  // Handle title edit mode
+  const handleTitleDoubleClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (isExpanded && !isLockedByOthers) {
+      setIsEditingTitle(true);
+    }
+  };
+
+  // Handle title input events to prevent interference with shortcuts
+  const handleTitleInputKeyDown = (e) => {
+    // Stop propagation of all key events to prevent triggering shortcuts
+    e.stopPropagation();
+    
+    // Handle specific keys
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      setIsEditingTitle(false);
+      titleInputRef.current?.blur();
+    }
+  };
+
+  const handleTitleInputClick = (e) => {
+    // Prevent card selection when clicking inside title input
+    e.stopPropagation();
+  };
+
+  const handleTitleInputMouseDown = (e) => {
+    // Prevent card dragging when interacting with title input
+    e.stopPropagation();
+  };
+
+  const handleTitleInputBlur = () => {
+    setIsEditingTitle(false);
+  };
+
+  // Focus title input when entering edit mode
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
 
   // Start connection from this card
   const handleStartConnection = (e) => {
@@ -225,21 +275,21 @@ const CategoryCard = ({
         </span>
         {isExpanded && isEditingTitle && !isLockedByOthers ? (
           <input
+            ref={titleInputRef}
             type="text"
             className="card-title-input"
             value={card.title}
             onChange={handleTitleChange}
-            onBlur={() => setIsEditingTitle(false)}
-            onClick={(e) => e.stopPropagation()}
+            onBlur={handleTitleInputBlur}
+            onClick={handleTitleInputClick}
+            onMouseDown={handleTitleInputMouseDown}
+            onKeyDown={handleTitleInputKeyDown}
             autoFocus
           />
         ) : (
           <div 
             className="card-title"
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              if (isExpanded && !isLockedByOthers) setIsEditingTitle(true);
-            }}
+            onDoubleClick={handleTitleDoubleClick}
           >
             {card.title}
           </div>
