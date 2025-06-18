@@ -50,7 +50,7 @@ const AnswerCard = ({
   const cardRef = useRef(null);
   const { selectCard, updateCard, createCard, getConnectedCards } = useCards();
   const { aiResponse, activeCardId, clearAIResponse } = useAI();
-  const { isCardLockedByMe, isCardLockedByOthers, lockCard, unlockCard, updateCard: updateCardCollab } = useCollaboration();
+  const { isCardLockedByMe, isCardLockedByOthers, lockCard, unlockCard } = useCollaboration();
   
   // Get connected cards count
   const connectedCards = getConnectedCards ? getConnectedCards(card.id) : [];
@@ -134,11 +134,8 @@ const AnswerCard = ({
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     
-    // Update local state
+    // Update local state (this also saves to database)
     updateCard(card.id, { title: newTitle });
-    
-    // Send update to collaboration service
-    updateCardCollab(card.id, { title: newTitle });
   };
   
   // Handle content edit with debouncing
@@ -158,11 +155,8 @@ const AnswerCard = ({
     }
     
     debouncedUpdateRef.current = setTimeout(() => {
-      // Update local state
+      // Update local state (this also saves to database)
       updateCard(card.id, { content: newContent });
-      
-      // Send update to collaboration service
-      updateCardCollab(card.id, { content: newContent });
       
       debouncedUpdateRef.current = null;
     }, 300);

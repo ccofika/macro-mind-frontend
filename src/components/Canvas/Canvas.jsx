@@ -14,8 +14,7 @@ import { useAutoSave } from '../../hooks/useAutoSave';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import { useZoomAndPan } from '../../hooks/useZoomAndPan';
 import CursorTrail from '../Collaboration/CursorTrail';
-import ActiveUsers from '../Collaboration/ActiveUsers';
-import SpacesSidebar from '../Collaboration/SpacesSidebar';
+import CollaborationPanel from '../Collaboration/CollaborationPanel';
 import CardLock from '../Collaboration/CardLock';
 
 // Lazy load card components
@@ -868,44 +867,11 @@ const Canvas = () => {
         {/* Keyboard Shortcuts Help */}
         <KeyboardShortcutsHelp />
         
-        {/* Collaboration UI Components */}
-        {showCollaborationUI && (
-          <>
-            {/* Spaces Sidebar */}
-            <SpacesSidebar />
-            
-            {/* Active Users */}
-            <ActiveUsers />
-            
-            {/* Cursor Trails */}
-            <CursorTrail />
-            
-            {/* Connection Status */}
-            <div className="connection-status">
-              <span className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
-                {isConnected ? '🟢' : '🔴'}
-              </span>
-              <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
-            </div>
-            
-            {/* Space Indicator */}
-            {currentSpace && (
-              <div className="current-space-indicator">
-                <span className="space-icon">🌐</span>
-                <span>{currentSpace.name}</span>
-                {currentSpace.isPublic && <span className="public-badge">Public</span>}
-              </div>
-            )}
-            
-            {/* Offline Mode Notice */}
-            {!isConnected && (
-              <div className="offline-notice">
-                <span className="offline-icon">⚠️</span>
-                <span>Collaboration features are offline</span>
-              </div>
-            )}
-          </>
-        )}
+        {/* Collaboration Panel - New Auto-Hide System */}
+        {showCollaborationUI && <CollaborationPanel />}
+        
+        {/* Cursor Trails */}
+        {showCollaborationUI && <CursorTrail />}
       </div>
     </div>
   );

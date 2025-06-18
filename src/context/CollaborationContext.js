@@ -187,8 +187,41 @@ export const CollaborationProvider = ({ children }) => {
     
     // Users list event
     const handleUsersList = (data) => {
-      console.log('Collaboration: Users list received:', data.users.length);
-      setActiveUsers(data.users);
+      console.log('Collaboration: handleUsersList received data:', data);
+      
+      if (!data) {
+        console.warn('Collaboration: Users list received null/undefined data');
+        setActiveUsers([]);
+        return;
+      }
+      
+      let users = [];
+      if (Array.isArray(data)) {
+        // Normal case: array of users
+        users = data;
+        console.log('Collaboration: Users list received (array):', data.length, 'users');
+      } else if (typeof data === 'object' && data.id) {
+        // Edge case: single user object - wrap it in array
+        users = [data];
+        console.log('Collaboration: Users list received (single user):', data.name || data.id);
+      } else {
+        console.warn('Collaboration: Users list received invalid data format:', typeof data, data);
+        setActiveUsers([]);
+        return;
+      }
+      
+      // Ensure all users have required properties to avoid downstream errors
+      const validUsers = users.filter(user => user && user.id).map(user => ({
+        id: user.id,
+        name: user.name || 'Unknown User',
+        username: user.name || 'Unknown User', // ActiveUsers component expects 'username'
+        color: user.color || '#000000',
+        picture: user.picture || null,
+        cursor: user.cursor || { x: 0, y: 0 }
+      }));
+      
+      console.log('Collaboration: Setting active users:', validUsers.length, 'valid users');
+      setActiveUsers(validUsers);
     };
     
     // Space joined event

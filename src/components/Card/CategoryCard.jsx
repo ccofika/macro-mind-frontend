@@ -65,7 +65,7 @@ const CategoryCard = ({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const cardRef = useRef(null);
   const { selectCard, updateCard, createCard, getConnectedCards } = useCards();
-  const { isCardLockedByMe, isCardLockedByOthers, lockCard, unlockCard, updateCard: updateCardCollab } = useCollaboration();
+  const { isCardLockedByMe, isCardLockedByOthers, lockCard, unlockCard } = useCollaboration();
   
   // Get connected cards count - memoize this calculation
   const connectionCount = React.useMemo(() => {
@@ -129,11 +129,8 @@ const CategoryCard = ({
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     
-    // Update local state
+    // Update local state (this also saves to database)
     updateCard(card.id, { title: newTitle });
-    
-    // Send update to collaboration service
-    updateCardCollab(card.id, { title: newTitle });
   };
 
   // Start connection from this card
