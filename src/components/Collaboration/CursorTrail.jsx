@@ -10,73 +10,81 @@ const CursorTrail = () => {
   
   // Update cursors with animation
   useEffect(() => {
-    // Safety check for activeUsers array
-    if (!Array.isArray(activeUsers) || activeUsers.length === 0) {
+    // Multiple safety checks to prevent any undefined access
+    if (!Array.isArray(activeUsers) || 
+        activeUsers.length === 0 || 
+        !currentUser || 
+        typeof zoomLevel !== 'number' || 
+        !panOffset || 
+        typeof panOffset.x !== 'number' || 
+        typeof panOffset.y !== 'number') {
       return;
     }
     
-    // Filter out current user and users without cursor position
-    const otherUsers = activeUsers.filter(user => 
-      user && 
-      typeof user === 'object' &&
-      user.id !== currentUser?.id && 
-      user.cursorPosition && 
-      typeof user.cursorPosition === 'object' &&
-      typeof user.cursorPosition.x === 'number' && 
-      typeof user.cursorPosition.y === 'number'
-    );
+    // Filter and validate users with strict checking
+    const validUsers = [];
+    for (const user of activeUsers) {
+      // Multiple strict validations
+      if (!user || 
+          typeof user !== 'object' || 
+          !user.id || 
+          user.id === currentUser.id ||
+          !user.cursorPosition ||
+          typeof user.cursorPosition !== 'object' ||
+          typeof user.cursorPosition.x !== 'number' ||
+          typeof user.cursorPosition.y !== 'number' ||
+          isNaN(user.cursorPosition.x) ||
+          isNaN(user.cursorPosition.y)) {
+        continue; // Skip invalid users
+      }
+      validUsers.push(user);
+    }
     
-    // Update cursor positions with smooth animation
-    otherUsers.forEach(user => {
-      // Extra safety check for user object
-      if (!user || typeof user !== 'object') {
-        return;
-      }
-      
-      // Safely destructure with defaults
-      const { 
-        id = null, 
-        cursorPosition = null, 
-        username = user.name || 'Unknown', 
-        color = '#000000' 
-      } = user;
-      
-      // Safely check if we have all required data
-      if (!id || !cursorPosition || 
-          typeof cursorPosition.x !== 'number' || 
-          typeof cursorPosition.y !== 'number') {
-        return;
-      }
-      
-      // Apply zoom and pan transformations
-      const adjustedX = cursorPosition.x * zoomLevel + panOffset.x;
-      const adjustedY = cursorPosition.y * zoomLevel + panOffset.y;
-      
-      setCursors(prev => ({
-        ...prev,
-        [id]: {
-          position: { x: adjustedX, y: adjustedY },
-          username,
-          color,
-          timestamp: Date.now(),
-          visible: true
+    // Process only validated users
+    validUsers.forEach(user => {
+      try {
+        // Extract validated data
+        const id = user.id;
+        const cursorPosition = user.cursorPosition;
+        const username = user.username || user.name || 'Unknown';
+        const color = user.color || '#000000';
+        
+        // Final safety check before calculations
+        if (!id || !cursorPosition) {
+          return;
         }
-      }));
-      
-      // Hide cursor after inactivity (5 seconds)
-      const hideTimeout = setTimeout(() => {
-        setCursors(prev => {
-          if (prev[id]) {
-            return {
-              ...prev,
-              [id]: { ...prev[id], visible: false }
-            };
+        
+        // Apply zoom and pan transformations
+        const adjustedX = cursorPosition.x * zoomLevel + panOffset.x;
+        const adjustedY = cursorPosition.y * zoomLevel + panOffset.y;
+        
+        setCursors(prev => ({
+          ...prev,
+          [id]: {
+            position: { x: adjustedX, y: adjustedY },
+            username,
+            color,
+            timestamp: Date.now(),
+            visible: true
           }
-          return prev;
-        });
-      }, 5000);
-      
-      // Don't return cleanup function here as it interferes with forEach
+        }));
+        
+        // Hide cursor after inactivity (5 seconds)
+        const hideTimeout = setTimeout(() => {
+          setCursors(prev => {
+            if (prev && prev[id]) {
+              return {
+                ...prev,
+                [id]: { ...prev[id], visible: false }
+              };
+            }
+            return prev;
+          });
+        }, 5000);
+        
+      } catch (error) {
+        console.warn('CursorTrail: Error processing user cursor:', error);
+      }
     });
   }, [activeUsers, currentUser, zoomLevel, panOffset]);
   

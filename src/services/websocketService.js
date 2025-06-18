@@ -354,15 +354,28 @@ class WebSocketService {
   joinSpace(spaceId) {
     if (!this.isAuthenticated) {
       console.warn('WebSocket: Cannot join space - not authenticated');
-      return;
+      return false;
+    }
+
+    if (!this.isConnected) {
+      console.warn('WebSocket: Cannot join space - not connected');
+      return false;
     }
 
     console.log('WebSocket: Joining space:', spaceId);
     this.currentSpaceId = spaceId;
-    this.send({
+    
+    const success = this.send({
       type: 'space:join',
       spaceId: spaceId
     });
+    
+    if (!success) {
+      console.error('WebSocket: Failed to send space join message');
+      return false;
+    }
+    
+    return true;
   }
   
   /**

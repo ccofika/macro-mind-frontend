@@ -117,11 +117,17 @@ export const CollaborationProvider = ({ children }) => {
       
       // Clear any existing users before joining
       setActiveUsers([]);
+      setCursorPositions(new Map());
+      setLockedCards(new Map());
       
       // Auto-join public space after authentication
       setTimeout(() => {
         console.log('Collaboration: Auto-joining public space');
-        websocketService.joinSpace('public');
+        const success = websocketService.joinSpace('public');
+        if (!success) {
+          console.warn('Collaboration: Failed to auto-join public space');
+          setError('Failed to join default space');
+        }
       }, 100);
     };
     
@@ -288,10 +294,12 @@ export const CollaborationProvider = ({ children }) => {
         username: user.name || 'Unknown User', // ActiveUsers component expects 'username'
         color: user.color || '#000000',
         picture: user.picture || null,
-        cursor: user.cursor || { x: 0, y: 0 }
+        cursor: user.cursor || { x: 0, y: 0 },
+        cursorPosition: user.cursor || { x: 0, y: 0 } // For CursorTrail component
       }));
       
       console.log('Collaboration: Setting active users:', validUsers.length, 'valid users');
+      console.log('Collaboration: Users details:', validUsers.map(u => ({ id: u.id, name: u.name, color: u.color })));
       setActiveUsers(validUsers);
     };
     
@@ -369,10 +377,20 @@ export const CollaborationProvider = ({ children }) => {
     console.log('Collaboration: Joining space:', spaceId);
     if (!isConnected) {
       console.warn('Collaboration: Not connected, cannot join space');
+      // Try to reconnect if not connected
+      if (currentUser) {
+        websocketService.connect().then(() => {
+          console.log('Collaboration: Reconnected, trying to join space again');
+          websocketService.joinSpace(spaceId);
+        }).catch(error => {
+          console.error('Collaboration: Failed to reconnect:', error);
+          setError('Failed to connect to collaboration server');
+        });
+      }
       return;
     }
     websocketService.joinSpace(spaceId);
-  }, [isConnected]);
+  }, [isConnected, currentUser]);
   
   const leaveSpace = useCallback(() => {
     console.log('Collaboration: Leaving space');
