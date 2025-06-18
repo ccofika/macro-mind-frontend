@@ -64,7 +64,7 @@ const CategoryCard = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const cardRef = useRef(null);
-  const { selectCard, updateCard, createCard, getConnectedCards } = useCards();
+  const { selectCard, updateCard, updateCardDebounced, createCard, getConnectedCards } = useCards();
   const { 
     isCardLockedByMe, 
     isCardLockedByOthers, 
@@ -136,8 +136,8 @@ const CategoryCard = ({
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     
-    // Update local state (this also saves to database)
-    updateCard(card.id, { title: newTitle });
+    // Update local state with debounced server/websocket updates
+    updateCardDebounced(card.id, { title: newTitle });
   };
 
   // Start connection from this card

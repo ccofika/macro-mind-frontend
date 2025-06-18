@@ -502,13 +502,27 @@ class WebSocketService {
    */
   notifyCardUpdated(card) {
     if (!this.isAuthenticated) {
+      console.warn('WebSocketService: Cannot notify card updated - not authenticated');
       return;
     }
 
-    this.send({
+    console.log('WebSocketService: Notifying card updated:', {
+      cardId: card.id,
+      cardTitle: card.title,
+      cardPosition: card.position,
+      currentSpaceId: this.currentSpaceId
+    });
+
+    const success = this.send({
       type: 'card:updated',
       card: card
     });
+    
+    if (!success) {
+      console.error('WebSocketService: Failed to send card updated notification');
+    } else {
+      console.log('WebSocketService: Card updated notification sent successfully');
+    }
   }
 
   /**

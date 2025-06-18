@@ -48,7 +48,7 @@ const AnswerCard = ({
   const [isCopied, setIsCopied] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const cardRef = useRef(null);
-  const { selectCard, updateCard, createCard, getConnectedCards } = useCards();
+  const { selectCard, updateCard, updateCardDebounced, createCard, getConnectedCards } = useCards();
   const { aiResponse, activeCardId, clearAIResponse } = useAI();
   const { 
     isCardLockedByMe, 
@@ -141,8 +141,8 @@ const AnswerCard = ({
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     
-    // Update local state (this also saves to database)
-    updateCard(card.id, { title: newTitle });
+    // Update local state with debounced server/websocket updates
+    updateCardDebounced(card.id, { title: newTitle });
   };
   
   // Handle content edit with debouncing
@@ -157,14 +157,14 @@ const AnswerCard = ({
     const newContent = e.target.value;
     setLocalContent(newContent);
     
+    // Clear existing timeout
     if (debouncedUpdateRef.current) {
       clearTimeout(debouncedUpdateRef.current);
     }
     
+    // Use debounced update for content changes
     debouncedUpdateRef.current = setTimeout(() => {
-      // Update local state (this also saves to database)
-      updateCard(card.id, { content: newContent });
-      
+      updateCardDebounced(card.id, { content: newContent });
       debouncedUpdateRef.current = null;
     }, 300);
   };

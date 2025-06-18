@@ -5,7 +5,7 @@ import { cardApi, connectionApi } from '../services/api';
 import websocketService from '../services/websocketService';
 import { cardService } from '../services/cardService';
 import { useCollaboration } from './CollaborationContext';
-import { CollaborationContext } from './CollaborationContext';
+import CollaborationContext from './CollaborationContext';
 
 const CardContext = createContext();
 
@@ -15,6 +15,31 @@ export const useCards = () => {
     throw new Error('useCards must be used within a CardProvider');
   }
   return context;
+};
+
+// Throttle utility function
+const throttle = (func, limit) => {
+  let inThrottle;
+  return function() {
+    const args = arguments;
+    const context = this;
+    if (!inThrottle) {
+      func.apply(context, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  }
+};
+
+// Debounce utility function for text updates
+const debounce = (func, delay) => {
+  let timeoutId;
+  return function() {
+    const args = arguments;
+    const context = this;
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(context, args), delay);
+  };
 };
 
 export const CardProvider = ({ children }) => {
@@ -31,7 +56,7 @@ export const CardProvider = ({ children }) => {
   const { screenToCanvas } = useCanvas();
 
   // Get collaboration context for integrated selection
-  const collaboration = useContext(useCollaboration);
+  const collaboration = useContext(CollaborationContext);
   const {
     selectCard: collaborationSelectCard,
     deselectCard: collaborationDeselectCard,
@@ -92,30 +117,62 @@ export const CardProvider = ({ children }) => {
   useEffect(() => {
     const handleCardCreated = (data) => {
       console.log('CardContext: Received card created event:', data);
-      // Add the new card to the state if it's not already there
-      setCards(prevCards => {
-        const exists = prevCards.some(card => card.id === data.card.id);
-        if (!exists) {
-          console.log('CardContext: Adding new card from remote user:', data.card.title);
-          return [...prevCards, data.card];
-        }
-        return prevCards;
-      });
+      // Only add cards from the current space or if no space is set
+      if (!currentSpaceId || data.card.spaceId === currentSpaceId) {
+        setCards(prevCards => {
+          const exists = prevCards.some(card => card.id === data.card.id);
+          if (!exists) {
+            console.log('CardContext: Adding new card from remote user:', data.card.title);
+            return [...prevCards, data.card];
+          }
+          return prevCards;
+        });
+      } else {
+        console.log('CardContext: Ignoring card created event - wrong space');
+      }
     };
 
     const handleCardUpdated = (data) => {
-      console.log('CardContext: Received card updated event:', data);
-      // Update the card in the state
-      setCards(prevCards => {
-        return prevCards.map(card => 
-          card.id === data.card.id ? { ...card, ...data.card } : card
-        );
+      console.log('CardContext: Received card updated event:', {
+        cardId: data.card.id,
+        cardTitle: data.card.title,
+        cardPosition: data.card.position,
+        cardSpaceId: data.card.spaceId,
+        currentSpaceId: currentSpaceId,
+        userId: data.userId,
+        userName: data.userName
       });
+      
+      // Only update cards from the current space
+      if (!currentSpaceId || data.card.spaceId === currentSpaceId || !data.card.spaceId) {
+        setCards(prevCards => {
+          const existingCard = prevCards.find(card => card.id === data.card.id);
+          if (!existingCard) {
+            console.log('CardContext: Card not found in local state, ignoring update');
+            return prevCards;
+          }
+          
+          const updatedCards = prevCards.map(card => 
+            card.id === data.card.id ? { ...card, ...data.card } : card
+          );
+          console.log('CardContext: Updated card from remote user:', {
+            cardId: data.card.id,
+            oldPosition: existingCard.position,
+            newPosition: data.card.position
+          });
+          return updatedCards;
+        });
+      } else {
+        console.log('CardContext: Ignoring card updated event - wrong space:', {
+          cardSpaceId: data.card.spaceId,
+          currentSpaceId: currentSpaceId
+        });
+      }
     };
 
     const handleCardDeleted = (data) => {
       console.log('CardContext: Received card deleted event:', data);
-      // Remove the card from the state
+      // Remove the card from the state (no space filtering needed for deletion)
       setCards(prevCards => prevCards.filter(card => card.id !== data.cardId));
       // Also remove any connections involving this card
       setConnections(prevConnections => 
@@ -127,20 +184,24 @@ export const CardProvider = ({ children }) => {
 
     const handleConnectionCreated = (data) => {
       console.log('CardContext: Received connection created event:', data);
-      // Add the new connection if it doesn't exist
-      setConnections(prevConnections => {
-        const exists = prevConnections.some(conn => conn.id === data.connection.id);
-        if (!exists) {
-          console.log('CardContext: Adding new connection from remote user');
-          return [...prevConnections, data.connection];
-        }
-        return prevConnections;
-      });
+      // Only add connections from the current space
+      if (!currentSpaceId || data.connection.spaceId === currentSpaceId) {
+        setConnections(prevConnections => {
+          const exists = prevConnections.some(conn => conn.id === data.connection.id);
+          if (!exists) {
+            console.log('CardContext: Adding new connection from remote user');
+            return [...prevConnections, data.connection];
+          }
+          return prevConnections;
+        });
+      } else {
+        console.log('CardContext: Ignoring connection created event - wrong space');
+      }
     };
 
     const handleConnectionDeleted = (data) => {
       console.log('CardContext: Received connection deleted event:', data);
-      // Remove the connection from the state
+      // Remove the connection from the state (no space filtering needed for deletion)
       setConnections(prevConnections => 
         prevConnections.filter(conn => conn.id !== data.connectionId)
       );
@@ -153,6 +214,8 @@ export const CardProvider = ({ children }) => {
     websocketService.on('connectionCreated', handleConnectionCreated);
     websocketService.on('connectionDeleted', handleConnectionDeleted);
 
+    console.log('CardContext: Websocket event listeners registered for space:', currentSpaceId);
+
     // Cleanup event listeners
     return () => {
       websocketService.off('cardCreated', handleCardCreated);
@@ -160,8 +223,9 @@ export const CardProvider = ({ children }) => {
       websocketService.off('cardDeleted', handleCardDeleted);
       websocketService.off('connectionCreated', handleConnectionCreated);
       websocketService.off('connectionDeleted', handleConnectionDeleted);
+      console.log('CardContext: Websocket event listeners cleaned up');
     };
-  }, []);
+  }, [currentSpaceId]);
 
   // Add card history for undo/redo
   const addToHistory = useCallback((cardsSnapshot, connectionsSnapshot) => {
@@ -289,6 +353,9 @@ export const CardProvider = ({ children }) => {
 
   // Update card
   const updateCard = useCallback(async (id, updates) => {
+    // Store the current card before update for websocket notification
+    const currentCard = cards.find(card => card.id === id);
+    
     setCards(prevCards => {
       const newCards = prevCards.map(card => 
         card.id === id 
@@ -303,19 +370,60 @@ export const CardProvider = ({ children }) => {
       // Update on server
       await cardApi.updateCard(id, updates);
       
-      // Get the updated card and notify other users
-      const updatedCard = cards.find(card => card.id === id);
-      if (updatedCard) {
-        websocketService.notifyCardUpdated({ ...updatedCard, ...updates });
+      // Notify other users via websocket with updated card data
+      if (currentCard) {
+        const updatedCard = { ...currentCard, ...updates, updatedAt: new Date().toISOString() };
+        websocketService.notifyCardUpdated(updatedCard);
       }
     } catch (err) {
       console.error(`Failed to update card ${id} on server:`, err);
       // Card is still updated locally
     }
-  }, [connections, addToHistory]);
+  }, [cards, connections, addToHistory]);
+
+  // Debounced version for text updates
+  const updateCardDebounced = useCallback((id, updates) => {
+    // Update local state immediately for responsive UI
+    setCards(prevCards => {
+      return prevCards.map(card => 
+        card.id === id 
+          ? { ...card, ...updates, updatedAt: new Date().toISOString() } 
+          : card
+      );
+    });
+    
+    // Create debounced functions per card to avoid conflicts
+    if (!updateCardDebounced.debouncedFunctions) {
+      updateCardDebounced.debouncedFunctions = new Map();
+    }
+    
+    if (!updateCardDebounced.debouncedFunctions.has(id)) {
+      updateCardDebounced.debouncedFunctions.set(id, debounce(async (cardId, cardUpdates) => {
+        try {
+          // Update on server
+          await cardApi.updateCard(cardId, cardUpdates);
+          
+          // Get current cards state using functional setState to avoid stale closure
+          setCards(currentCards => {
+            const latestCard = currentCards.find(card => card.id === cardId);
+            if (latestCard) {
+              const updatedCard = { ...latestCard, ...cardUpdates, updatedAt: new Date().toISOString() };
+              console.log('CardContext: Sending debounced card update:', cardId, cardUpdates);
+              websocketService.notifyCardUpdated(updatedCard);
+            }
+            return currentCards; // No state change needed
+          });
+        } catch (err) {
+          console.error(`Failed to update card ${cardId} on server:`, err);
+        }
+      }, 500)); // 500ms debounce for text updates
+    }
+    
+    updateCardDebounced.debouncedFunctions.get(id)(id, updates);
+  }, []); // Remove cards dependency to avoid recreating functions
 
   // Move card
-  const moveCard = useCallback((id, position) => {
+  const moveCard = useCallback((id, position, isRealTime = false) => {
     setCards(prevCards => {
       return prevCards.map(card => 
         card.id === id 
@@ -323,44 +431,69 @@ export const CardProvider = ({ children }) => {
           : card
       );
     });
-  }, []);
+    
+    // Send real-time position updates during dragging (throttled)
+    if (isRealTime) {
+      // Create throttled websocket update function per card
+      if (!moveCard.throttledUpdates) {
+        moveCard.throttledUpdates = new Map();
+      }
+      
+      if (!moveCard.throttledUpdates.has(id)) {
+        moveCard.throttledUpdates.set(id, throttle((cardId, pos) => {
+          setCards(currentCards => {
+            const card = currentCards.find(c => c.id === cardId);
+            if (card) {
+              const updatedCard = { ...card, position: pos, updatedAt: new Date().toISOString() };
+              console.log('CardContext: Sending real-time position update for card:', cardId, pos);
+              websocketService.notifyCardUpdated(updatedCard);
+            }
+            return currentCards; // No state change needed
+          });
+        }, 100)); // Throttle to max 10 updates per second
+      }
+      
+      moveCard.throttledUpdates.get(id)(id, position);
+    }
+  }, []); // Remove cards dependency
 
   // Finalize move (add to history and update server)
   const finalizeMoveCard = useCallback(async () => {
-    // Add current state to history
-    addToHistory(cards, connections);
-    
-    try {
-      console.log("Finalizing card positions...");
+    // Get current state and add to history
+    setCards(currentCards => {
+      setConnections(currentConnections => {
+        addToHistory(currentCards, currentConnections);
+        return currentConnections;
+      });
       
-      // Get current positions of all cards
-      const positions = cards.map(card => ({
-        id: card.id,
-        position: card.position
-      }));
-      
-      console.log(`Sending ${positions.length} card positions to server`);
-      
-      // Ensure we have the latest state before sending to server
-      // This is important because React state updates are asynchronous
-      setTimeout(async () => {
+      // Now finalize the move with current positions
+      (async () => {
         try {
-          // Update positions on server in bulk with the latest state
-          const latestPositions = cards.map(card => ({
+          console.log("Finalizing card positions...");
+          
+          // Get current positions of all cards
+          const positions = currentCards.map(card => ({
             id: card.id,
             position: card.position
           }));
           
-          const result = await cardApi.updateCardPositions(latestPositions);
-          console.log("Card positions saved successfully:", result);
+          console.log(`Sending ${positions.length} card positions to server`);
+          
+          // Update positions on server only (websocket already sent during drag)
+          try {
+            const result = await cardApi.updateCardPositions(positions);
+            console.log("Card positions saved successfully:", result);
+          } catch (err) {
+            console.error("Failed to update card positions on server:", err);
+          }
         } catch (err) {
-          console.error("Failed to update card positions on server:", err);
+          console.error("Failed to prepare card positions update:", err);
         }
-      }, 0);
-    } catch (err) {
-      console.error("Failed to prepare card positions update:", err);
-    }
-  }, [cards, connections, addToHistory]);
+      })();
+      
+      return currentCards;
+    });
+  }, [addToHistory]); // Remove cards and connections dependencies
 
   // Delete card
   const deleteCard = useCallback(async (ids) => {
@@ -555,6 +688,7 @@ export const CardProvider = ({ children }) => {
     createCategoryCard,
     createAnswerCard,
     updateCard,
+    updateCardDebounced,
     moveCard,
     finalizeMoveCard,
     deleteCard,

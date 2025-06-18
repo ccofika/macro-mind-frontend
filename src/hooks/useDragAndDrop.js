@@ -40,9 +40,15 @@ export const useDragAndDrop = (id, initialPosition) => {
         y: state.startCardY + deltaY
       };
       
-      // Update both local state and context
+      // Update both local state and context with real-time flag
       setPosition(newPosition);
-      moveCard(id, newPosition);
+      console.log('DragAndDrop: Sending real-time position update (canvas):', {
+        cardId: id,
+        newPosition: newPosition,
+        deltaX: deltaX,
+        deltaY: deltaY
+      });
+      moveCard(id, newPosition, true); // Enable real-time updates during drag
     } else {
       // Fallback if screenToCanvas is not available
       // Calculate delta in screen coordinates
@@ -55,9 +61,16 @@ export const useDragAndDrop = (id, initialPosition) => {
         y: state.startCardY + deltaY / zoom
       };
       
-      // Update both local state and context
+      // Update both local state and context with real-time flag
       setPosition(newPosition);
-      moveCard(id, newPosition);
+      console.log('DragAndDrop: Sending real-time position update (fallback):', {
+        cardId: id,
+        newPosition: newPosition,
+        deltaX: deltaX,
+        deltaY: deltaY,
+        zoom: zoom
+      });
+      moveCard(id, newPosition, true); // Enable real-time updates during drag
     }
     
     // Update last position for next frame
@@ -98,6 +111,7 @@ export const useDragAndDrop = (id, initialPosition) => {
       }
       
       // Finalize the move
+      console.log('DragAndDrop: Finalizing card move for:', id);
       finalizeMoveCard();
       
       // Clean up cursor
