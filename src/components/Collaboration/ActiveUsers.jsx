@@ -28,7 +28,9 @@ const ActiveUsers = () => {
       </div>
       
       <div className="active-users-list">
-        {activeUsers.map(user => (
+        {activeUsers
+          .filter(user => user && user.id) // Filter out invalid users
+          .map(user => (
           <div 
             key={user.id} 
             className={`active-user ${user.id === currentUser?.id ? 'current-user' : ''}`}
@@ -36,15 +38,15 @@ const ActiveUsers = () => {
             <div 
               className="user-avatar" 
               style={{ 
-                backgroundColor: user.color,
+                backgroundColor: user.color || '#666666',
                 border: user.id === currentUser?.id ? '2px solid white' : 'none'
               }}
             >
-              {user.username.substring(0, 1).toUpperCase()}
+              {(user.username || user.name || 'U').substring(0, 1).toUpperCase()}
             </div>
             <div className="user-info">
               <div className="user-name">
-                {user.username}
+                {user.username || user.name || 'Unknown User'}
                 {user.id === currentUser?.id && <span className="you-label">(You)</span>}
               </div>
               <div className="user-status">

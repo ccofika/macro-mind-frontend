@@ -56,37 +56,52 @@ export const CollaborationProvider = ({ children }) => {
   // Connection management
   // Initialize WebSocket connection when user is authenticated
   useEffect(() => {
+    console.log('Collaboration: Connection effect triggered', { 
+      currentUser: !!currentUser, 
+      currentUserEmail: currentUser?.email,
+      hasToken: !!localStorage.getItem('token'),
+      token: localStorage.getItem('token')?.substring(0, 20) + '...'
+    });
+    
     if (!currentUser) {
+      console.log('Collaboration: No current user, disconnecting WebSocket');
+      websocketService.disconnect();
       setIsConnected(false);
       return;
     }
     
     const token = localStorage.getItem('token');
     if (!token) {
+      console.log('Collaboration: No token found, disconnecting WebSocket');
+      websocketService.disconnect();
       setIsConnected(false);
       return;
     }
     
-    console.log('Collaboration: Connecting to WebSocket...');
+    console.log('Collaboration: User and token found, connecting to WebSocket...');
     
-    // Connect to WebSocket
-    websocketService.connect()
-      .then(() => {
-        console.log('Collaboration: WebSocket connected');
-        setIsConnected(true);
-        setError(null);
-      })
-      .catch(error => {
-        console.error('Collaboration: WebSocket connection failed:', error);
-        setIsConnected(false);
-        setError('Failed to connect to collaboration server');
-      });
+    // Small delay to ensure everything is properly set
+    const connectTimeout = setTimeout(() => {
+      // Connect to WebSocket
+      websocketService.connect()
+        .then(() => {
+          console.log('Collaboration: WebSocket connected successfully');
+          setIsConnected(true);
+          setError(null);
+        })
+        .catch(error => {
+          console.error('Collaboration: WebSocket connection failed:', error);
+          setIsConnected(false);
+          setError('Failed to connect to collaboration server: ' + error.message);
+        });
+    }, 500); // 500ms delay
     
     // Load spaces
     loadSpaces();
     
     // Cleanup on unmount
     return () => {
+      clearTimeout(connectTimeout);
       websocketService.disconnect();
       setIsConnected(false);
     };
@@ -99,6 +114,12 @@ export const CollaborationProvider = ({ children }) => {
       console.log('Collaboration: WebSocket authenticated');
       setIsConnected(true);
       setError(null);
+      
+      // Auto-join public space after authentication
+      setTimeout(() => {
+        console.log('Collaboration: Auto-joining public space');
+        websocketService.joinSpace('public');
+      }, 100);
     };
     
     // Authentication error event
@@ -125,18 +146,36 @@ export const CollaborationProvider = ({ children }) => {
     
     // User join event
     const handleUserJoin = (data) => {
-      console.log('Collaboration: User joined:', data.userName);
+      console.log('Collaboration: User joined:', data.userName || data.name);
+      
+      // Validate user data
+      if (!data || !data.userId) {
+        console.warn('Collaboration: Invalid user join data:', data);
+        return;
+      }
+      
       setActiveUsers(prev => {
-        const filtered = prev.filter(user => user.id !== data.userId);
-        return [...filtered, {
+        // Check if user already exists to avoid duplicates
+        const existingIndex = prev.findIndex(user => user.id === data.userId);
+        const newUser = {
           id: data.userId,
-          name: data.userName,
-          username: data.userName,
-          color: data.userColor,
+          name: data.userName || data.name || 'Unknown User',
+          username: data.userName || data.name || 'Unknown User',
+          color: data.userColor || '#000000',
           cursor: { x: 0, y: 0 },
           cursorPosition: { x: 0, y: 0 },
-          lastActivity: data.timestamp
-        }];
+          lastActivity: data.timestamp || Date.now()
+        };
+        
+        if (existingIndex >= 0) {
+          // Update existing user
+          const updated = [...prev];
+          updated[existingIndex] = newUser;
+          return updated;
+        } else {
+          // Add new user
+          return [...prev, newUser];
+        }
       });
     };
     
@@ -153,6 +192,12 @@ export const CollaborationProvider = ({ children }) => {
     
     // Cursor update event
     const handleCursorUpdate = (data) => {
+      // Validate cursor data
+      if (!data || typeof data.x !== 'number' || typeof data.y !== 'number' || !data.userId) {
+        console.warn('Collaboration: Invalid cursor data received:', data);
+        return;
+      }
+      
       setCursorPositions(prev => {
         const newPositions = new Map(prev);
         newPositions.set(data.userId, {

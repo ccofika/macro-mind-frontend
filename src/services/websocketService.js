@@ -67,21 +67,37 @@ class WebSocketService {
           
           // Authenticate immediately after connection opens
           const token = localStorage.getItem('token');
-          if (token && this.socket && this.socket.readyState === WebSocket.OPEN) {
-            console.log('WebSocket: Sending authentication...');
-            try {
-              this.socket.send(JSON.stringify({
-                type: 'auth',
-                token: token
-              }));
-            } catch (error) {
-              console.error('WebSocket: Error sending authentication:', error);
-              reject(new Error('Failed to send authentication'));
-              return;
-            }
-          } else {
-            console.error('WebSocket: Cannot authenticate - no token or socket not ready');
-            reject(new Error('No authentication token or socket not ready'));
+          console.log('WebSocket: Checking token for authentication', { 
+            hasToken: !!token, 
+            tokenLength: token?.length,
+            socketReady: this.socket?.readyState === WebSocket.OPEN 
+          });
+          
+          if (!token) {
+            console.error('WebSocket: No authentication token found in localStorage');
+            this.emit('authError', 'No authentication token available');
+            reject(new Error('No authentication token found'));
+            return;
+          }
+          
+          if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            console.error('WebSocket: Socket not ready for authentication');
+            this.emit('authError', 'Socket not ready');
+            reject(new Error('Socket not ready for authentication'));
+            return;
+          }
+          
+          console.log('WebSocket: Sending authentication with token...');
+          try {
+            this.socket.send(JSON.stringify({
+              type: 'auth',
+              token: token
+            }));
+            console.log('WebSocket: Authentication message sent successfully');
+          } catch (error) {
+            console.error('WebSocket: Error sending authentication:', error);
+            this.emit('authError', 'Failed to send authentication');
+            reject(new Error('Failed to send authentication: ' + error.message));
             return;
           }
           
