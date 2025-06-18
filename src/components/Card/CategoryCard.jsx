@@ -207,16 +207,19 @@ const CategoryCard = ({
     }
   }, [isEditingTitle]);
 
-  // Start connection from this card
-  const handleStartConnection = (e) => {
+  // Remove the old handleStartConnection function and replace it with a connection button handler
+  const handleConnectionButtonClick = (e) => {
     e.stopPropagation();
-    if (connectMode) {
-      const rect = cardRef.current.getBoundingClientRect();
-      const centerPos = {
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2
-      };
-      onConnectStart(card.id, centerPos);
+    
+    // Check if card is locked by another user
+    if (isCardLockedByOthers(card.id)) {
+      return; // Cannot start connection from locked card
+    }
+    
+    console.log('CategoryCard: Connection button clicked for card:', card.id);
+    
+    if (onConnect) {
+      onConnect(card.id);
     }
   };
 
@@ -332,7 +335,7 @@ const CategoryCard = ({
             <button
               className="connection-button"
               title="Connect to another card"
-              onClick={handleStartConnection}
+              onClick={handleConnectionButtonClick}
               disabled={isLockedByOthers}
             >
               <LinkIcon />
@@ -358,7 +361,7 @@ const CategoryCard = ({
           <div className="card-quick-actions">
             <button 
               className="quick-action-btn"
-              onClick={handleStartConnection}
+              onClick={handleConnectionButtonClick}
               title="Connect"
               disabled={isLockedByOthers}
             >
@@ -386,7 +389,7 @@ const CategoryCard = ({
             className="connection-handle"
             onClick={(e) => {
               e.stopPropagation();
-              handleStartConnection(e);
+              handleConnectionButtonClick(e);
             }}
           />
         </div>

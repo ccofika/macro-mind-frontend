@@ -292,8 +292,8 @@ const AnswerCard = ({
       });
   };
 
-  // Start connection from this card
-  const handleStartConnection = (e) => {
+  // Remove the old handleStartConnection function and replace it with a connection button handler
+  const handleConnectionButtonClick = (e) => {
     e.stopPropagation();
     
     // Check if card is locked by another user
@@ -301,12 +301,11 @@ const AnswerCard = ({
       return; // Cannot start connection from locked card
     }
     
-    const rect = cardRef.current.getBoundingClientRect();
-    const centerPos = {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2
-    };
-    onConnectStart(card.id, centerPos);
+    console.log('AnswerCard: Connection button clicked for card:', card.id);
+    
+    if (onConnect) {
+      onConnect(card.id);
+    }
   };
 
   // Add new child card
@@ -447,7 +446,7 @@ const AnswerCard = ({
             <button
               className="connection-button"
               title="Connect to another card"
-              onClick={handleStartConnection}
+              onClick={handleConnectionButtonClick}
               disabled={isLockedByOthers}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -491,7 +490,7 @@ const AnswerCard = ({
           <div className="card-quick-actions">
             <button 
               className="quick-action-btn"
-              onClick={handleStartConnection}
+              onClick={handleConnectionButtonClick}
               title="Connect"
               disabled={isLockedByOthers}
             >
@@ -526,7 +525,7 @@ const AnswerCard = ({
             className="connection-handle"
             onClick={(e) => {
               e.stopPropagation();
-              handleStartConnection(e);
+              handleConnectionButtonClick(e);
             }}
           />
         </div>
