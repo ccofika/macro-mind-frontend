@@ -15,44 +15,58 @@ export const CardProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [currentSpaceId, setCurrentSpaceId] = useState(null);
   
   const { screenToCanvas } = useCanvas();
 
-  // Load initial data from server
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // Load cards from server
-        const cardsData = await cardApi.getAllCards();
-        setCards(cardsData);
-        
-        // Load connections from server
-        const connectionsData = await connectionApi.getAllConnections();
-        setConnections(connectionsData);
-      } catch (err) {
-        console.error("Failed to load data from server:", err);
-        setError("Failed to load cards and connections from server");
-        
-        // Try to load from localStorage as fallback
-        try {
-          const savedCards = localStorage.getItem('cards');
-          const savedConnections = localStorage.getItem('connections');
-          
-          if (savedCards) setCards(JSON.parse(savedCards));
-          if (savedConnections) setConnections(JSON.parse(savedConnections));
-        } catch (localErr) {
-          console.error("Also failed to load from localStorage:", localErr);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadData();
+  // Function to set current space (called from CollaborationContext)
+  const setCurrentSpace = useCallback((spaceId) => {
+    console.log('CardContext: setCurrentSpace called with:', spaceId);
+    setCurrentSpaceId(spaceId);
   }, []);
+
+  // Load cards and connections for the current space
+  const loadSpaceData = useCallback(async (spaceId) => {
+    if (!spaceId) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('Loading data for space:', spaceId);
+      
+      // Load cards from server for this space
+      const cardsData = await cardApi.getAllCards(spaceId);
+      setCards(cardsData);
+      
+      // Load connections from server for this space
+      const connectionsData = await connectionApi.getAllConnections(spaceId);
+      setConnections(connectionsData);
+      
+      console.log(`Loaded ${cardsData.length} cards and ${connectionsData.length} connections for space ${spaceId}`);
+    } catch (err) {
+      console.error("Failed to load space data:", err);
+      setError("Failed to load cards and connections for this space");
+      
+      // Clear cards and connections on error
+      setCards([]);
+      setConnections([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load data when space changes
+  useEffect(() => {
+    console.log('CardContext: currentSpaceId changed to:', currentSpaceId);
+    if (currentSpaceId) {
+      loadSpaceData(currentSpaceId);
+    } else {
+      // If no space is selected, clear the data
+      setCards([]);
+      setConnections([]);
+    }
+  }, [currentSpaceId, loadSpaceData]);
 
   // Add card history for undo/redo
   const addToHistory = useCallback((cardsSnapshot, connectionsSnapshot) => {
@@ -99,8 +113,9 @@ export const CardProvider = ({ children }) => {
     });
     
     try {
-      // Create on server
-      const savedConnection = await connectionApi.createConnection(sourceId, targetId);
+      // Create on server with current space
+      const spaceId = currentSpaceId || 'public';
+      const savedConnection = await connectionApi.createConnection(sourceId, targetId, spaceId);
       
       // Update local state with server-generated ID
       setConnections(prev => prev.map(conn => 
@@ -114,10 +129,15 @@ export const CardProvider = ({ children }) => {
     }
     
     return true;
-  }, [cards, connections, addToHistory]);
+  }, [cards, connections, addToHistory, currentSpaceId]);
 
   // Create a new card (generic function)
   const createCard = useCallback(async (type, position, parentId = null) => {
+    if (!currentSpaceId) {
+      console.warn('Cannot create card: no current space selected');
+      return null;
+    }
+    
     const title = type === 'category' ? 'New Category' : 'New Answer';
     const content = type === 'answer' ? '' : null;
     
@@ -128,6 +148,7 @@ export const CardProvider = ({ children }) => {
       content,
       position,
       parentId,
+      spaceId: currentSpaceId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -151,7 +172,7 @@ export const CardProvider = ({ children }) => {
       console.error("Failed to create card on server:", err);
       return newCard.id;
     }
-  }, [cards, connections, addToHistory, connectCards]);
+  }, [cards, connections, addToHistory, connectCards, currentSpaceId]);
 
   // Create category card
   const createCategoryCard = useCallback((title, screenPosition) => {
@@ -385,8 +406,11 @@ export const CardProvider = ({ children }) => {
     cards,
     connections,
     selectedCardIds,
+    setSelectedCardIds,
     loading,
     error,
+    currentSpaceId,
+    setCurrentSpace,
     createCard,
     createCategoryCard,
     createAnswerCard,

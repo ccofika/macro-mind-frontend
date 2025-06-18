@@ -1,0 +1,99 @@
+/* CardLock.css */
+
+.card-lock {
+  position: absolute;
+  top: -30px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.8);
+  border-radius: 20px;
+  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 30;
+  border: 2px solid;
+  animation: fadeIn 0.3s ease;
+}
+
+.card-lock.my-lock {
+  background-color: #4ECDC4;
+}
+
+.card-lock.other-lock {
+  animation: pulse-lock 2s infinite;
+}
+
+.lock-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+}
+
+.lock-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.lock-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.lock-username {
+  font-weight: 600;
+}
+
+.lock-message {
+  opacity: 0.7;
+  font-size: 10px;
+}
+
+@keyframes pulse-lock {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .card-lock {
+    top: -25px;
+    right: 5px;
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+  
+  .lock-icon {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .lock-icon svg {
+    width: 12px;
+    height: 12px;
+  }
+} 

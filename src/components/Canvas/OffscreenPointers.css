@@ -1,0 +1,87 @@
+.offscreen-pointers-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 900;
+}
+
+.offscreen-pointer {
+  position: absolute;
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 901;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  opacity: 0.75;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2));
+}
+
+.offscreen-pointer:hover {
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(var(--angle)) scale(1.1);
+  z-index: 902;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
+}
+
+.pointer-content {
+  display: flex;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  padding: 5px 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 123, 255, 0.5);
+  transition: all 0.2s ease;
+}
+
+.offscreen-pointer:hover .pointer-content {
+  background-color: rgba(255, 255, 255, 1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+  border-color: rgba(0, 123, 255, 0.8);
+}
+
+.pointer-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #333;
+  margin-right: 6px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 120px;
+}
+
+.pointer-arrow {
+  font-size: 14px;
+  color: rgba(0, 123, 255, 0.9);
+  font-weight: bold;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .pointer-content {
+    padding: 3px 8px;
+    max-width: 120px;
+  }
+  
+  .pointer-title {
+    font-size: 11px;
+    max-width: 90px;
+  }
+} 

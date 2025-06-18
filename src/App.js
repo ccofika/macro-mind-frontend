@@ -15,6 +15,7 @@ import { AuthProvider } from './context/AuthContext';
 import { CanvasProvider } from './context/CanvasContext';
 import { CardProvider } from './context/CardContext';
 import { AIProvider } from './context/AIContext';
+import { CollaborationProvider } from './context/CollaborationContext';
 
 function App() {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
@@ -37,10 +38,12 @@ function App() {
                     <CanvasProvider>
                       <CardProvider>
                         <AIProvider>
-                          <>
-                            <NavBar />
-                            <Canvas />
-                          </>
+                          <CollaborationProvider>
+                            <>
+                              <NavBar />
+                              <Canvas />
+                            </>
+                          </CollaborationProvider>
                         </AIProvider>
                       </CardProvider>
                     </CanvasProvider>

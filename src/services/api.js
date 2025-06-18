@@ -12,10 +12,18 @@ const api = axios.create({
 });
 
 // Add token to requests if available
-const token = localStorage.getItem('token');
-if (token) {
-  api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-}
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Error handling interceptor
 api.interceptors.response.use(
@@ -86,10 +94,11 @@ export const authApi = {
 
 // Card-related API calls
 export const cardApi = {
-  // Get all cards
-  getAllCards: async () => {
+  // Get all cards for a space
+  getAllCards: async (spaceId) => {
     try {
-      const response = await api.get('/cards');
+      const params = spaceId ? { spaceId } : {};
+      const response = await api.get('/cards', { params });
       return response.data;
     } catch (error) {
       console.error('Failed to fetch cards:', error);
@@ -141,27 +150,10 @@ export const cardApi = {
     }
   },
   
-  // Update card positions in bulk
+  // Update card positions
   updateCardPositions: async (positions) => {
     try {
-      // Filter out any positions that don't have valid data
-      const validPositions = positions.filter(pos => 
-        pos && pos.id && pos.position && 
-        typeof pos.position.x === 'number' && 
-        typeof pos.position.y === 'number'
-      );
-      
-      if (validPositions.length === 0) {
-        console.warn('No valid positions to update');
-        return { success: false, message: 'No valid positions to update' };
-      }
-      
-      console.log(`Sending ${validPositions.length} valid card positions to server`);
-      
-      const response = await api.post('/cards/positions', { 
-        positions: validPositions 
-      });
-      
+      const response = await api.post('/cards/positions', { positions });
       return response.data;
     } catch (error) {
       console.error('Failed to update card positions:', error);
@@ -172,10 +164,11 @@ export const cardApi = {
 
 // Connection-related API calls
 export const connectionApi = {
-  // Get all connections
-  getAllConnections: async () => {
+  // Get all connections for a space
+  getAllConnections: async (spaceId) => {
     try {
-      const response = await api.get('/cards/connections');
+      const params = spaceId ? { spaceId } : {};
+      const response = await api.get('/cards/connections', { params });
       return response.data;
     } catch (error) {
       console.error('Failed to fetch connections:', error);
@@ -184,12 +177,27 @@ export const connectionApi = {
   },
   
   // Create new connection
-  createConnection: async (sourceId, targetId) => {
+  createConnection: async (sourceId, targetId, spaceId) => {
     try {
-      const response = await api.post('/cards/connections', { sourceId, targetId });
+      const response = await api.post('/cards/connections', { 
+        sourceId, 
+        targetId,
+        spaceId 
+      });
       return response.data;
     } catch (error) {
       console.error('Failed to create connection:', error);
+      throw error;
+    }
+  },
+  
+  // Update connection
+  updateConnection: async (id, updates) => {
+    try {
+      const response = await api.put(`/cards/connections/${id}`, updates);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update connection:', error);
       throw error;
     }
   },

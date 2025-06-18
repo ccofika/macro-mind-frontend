@@ -10,6 +10,8 @@
   --category-accent: #8B5CF6;
   --answer-accent: #3B82F6;
   --connection-color: #60A5FA;
+  --locked-accent: #EF4444;
+  --locked-by-me-accent: #10B981;
 }
 
 /* Base Card Container */
@@ -794,4 +796,91 @@
   top: 50%;
   left: 0;
   transform: translate(-50%, -50%);
+}
+
+/* Locked Card Styles */
+.card.locked-by-others {
+  border-color: var(--locked-accent);
+  box-shadow: 0 0 0 1px var(--locked-accent), var(--card-shadow);
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.card.locked-by-me {
+  border-color: var(--locked-by-me-accent);
+  box-shadow: 0 0 0 1px var(--locked-by-me-accent), var(--card-shadow);
+}
+
+.card.locked-by-others:hover {
+  transform: none;
+  box-shadow: 0 0 0 1px var(--locked-accent), var(--card-shadow);
+  opacity: 0.85;
+}
+
+.card.locked-by-others .card-icon {
+  color: var(--locked-accent);
+}
+
+.card.locked-by-me .card-icon {
+  color: var(--locked-by-me-accent);
+}
+
+.card.locked-by-others::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(239, 68, 68, 0.05),
+    rgba(239, 68, 68, 0.05) 10px,
+    rgba(239, 68, 68, 0.1) 10px,
+    rgba(239, 68, 68, 0.1) 20px
+  );
+  pointer-events: none;
+  z-index: 0;
+  border-radius: 8px;
+}
+
+/* Disabled button styles */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Disabled textarea styles */
+textarea:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Lock indicator */
+.lock-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--locked-accent);
+  color: white;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 5;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lock-indicator svg {
+  width: 12px;
+  height: 12px;
+}
+
+.lock-indicator.my-lock {
+  background: var(--locked-by-me-accent);
 }

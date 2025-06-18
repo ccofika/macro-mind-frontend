@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
 import './Card.css';
 import { useCards } from '../../context/CardContext';
+import { useCollaboration } from '../../context/CollaborationContext';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 
 // Optimization: Extract static SVGs to prevent re-renders
@@ -39,6 +40,13 @@ const PlusIcon = memo(() => (
   </svg>
 ));
 
+const LockIcon = memo(() => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+  </svg>
+));
+
 const CategoryCard = ({ 
   card, 
   isSelected, 
@@ -48,12 +56,16 @@ const CategoryCard = ({
   onConnectStart,
   onConnectEnd,
   onHover,
-  onLeave
+  onLeave,
+  onSelect,
+  onDeselect,
+  isLocked
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const cardRef = useRef(null);
   const { selectCard, updateCard, createCard, getConnectedCards } = useCards();
+  const { isCardLockedByMe, isCardLockedByOthers, lockCard, unlockCard, updateCard: updateCardCollab } = useCollaboration();
   
   // Get connected cards count - memoize this calculation
   const connectionCount = React.useMemo(() => {
@@ -82,19 +94,46 @@ const CategoryCard = ({
       };
       onConnectEnd(card.id, centerPos);
     } else {
-      selectCard(card.id, e.ctrlKey);
+      // Check if card is locked by another user
+      if (isCardLockedByOthers(card.id)) {
+        return; // Cannot select card locked by others
+      }
+      
+      // Lock the card when selected
+      if (!isCardLockedByMe(card.id) && !isSelected) {
+        lockCard(card.id);
+      }
+      
+      // Handle selection - always use onSelect if provided, otherwise fall back to context
+      if (onSelect) {
+        onSelect(card.id, e.ctrlKey);
+      } else if (selectCard) {
+        selectCard(card.id, e.ctrlKey);
+      }
     }
   };
   
   // Handle double click to toggle expand
   const handleDoubleClick = (e) => {
     e.stopPropagation();
+    
+    // Check if card is locked by another user
+    if (isCardLockedByOthers(card.id)) {
+      return; // Cannot expand card locked by others
+    }
+    
     setIsExpanded(!isExpanded);
   };
   
-  // Handle title edit
+  // Handle title change
   const handleTitleChange = (e) => {
-    updateCard(card.id, { title: e.target.value });
+    const newTitle = e.target.value;
+    
+    // Update local state
+    updateCard(card.id, { title: newTitle });
+    
+    // Send update to collaboration service
+    updateCardCollab(card.id, { title: newTitle });
   };
 
   // Start connection from this card
@@ -113,6 +152,12 @@ const CategoryCard = ({
   // Add new answer card
   const handleAddAnswer = (e) => {
     e.stopPropagation();
+    
+    // Check if card is locked by another user
+    if (isCardLockedByOthers(card.id)) {
+      return; // Cannot add answer to card locked by others
+    }
+    
     if (createCard) {
       const newPosition = {
         x: position.x + 50,
@@ -128,11 +173,26 @@ const CategoryCard = ({
     setIsExpanded(false);
   };
 
+  // Handle card deselection
+  const handleDeselect = () => {
+    if (onDeselect) {
+      onDeselect(card.id);
+    }
+    
+    // Unlock the card when deselected
+    if (isCardLockedByMe(card.id)) {
+      unlockCard(card.id);
+    }
+  };
+
   const cardStyle = {
     transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
     zIndex: isDragging || isSelected || isHovered ? 20 : isExpanded ? 15 : 10,
     willChange: isDragging ? 'transform' : 'auto'
   };
+
+  const isLockedByOthers = isCardLockedByOthers(card.id);
+  const isLockedByMe = isCardLockedByMe(card.id);
 
   return (
     <div
@@ -141,19 +201,21 @@ const CategoryCard = ({
                 ${isDragging ? 'dragging' : ''} 
                 ${isHovered ? 'hovered' : ''} 
                 ${isRelated ? 'related' : ''}
-                ${isExpanded ? 'expanded' : ''}`}
+                ${isExpanded ? 'expanded' : ''}
+                ${isLockedByOthers ? 'locked-by-others' : ''}
+                ${isLockedByMe ? 'locked-by-me' : ''}`}
       style={cardStyle}
       onClick={handleCardClick}
       onDoubleClick={handleDoubleClick}
-      onMouseDown={connectMode ? null : handleMouseDown}
+      onMouseDown={connectMode || isLockedByOthers ? null : handleMouseDown}
       onMouseEnter={() => onHover(card.id)}
       onMouseLeave={onLeave}
     >
       <div className="card-header">
         <span className="card-icon">
-          <FolderIcon />
+          {isLockedByOthers ? <LockIcon /> : <FolderIcon />}
         </span>
-        {isExpanded && isEditingTitle ? (
+        {isExpanded && isEditingTitle && !isLockedByOthers ? (
           <input
             type="text"
             className="card-title-input"
@@ -168,7 +230,7 @@ const CategoryCard = ({
             className="card-title"
             onDoubleClick={(e) => {
               e.stopPropagation();
-              if (isExpanded) setIsEditingTitle(true);
+              if (isExpanded && !isLockedByOthers) setIsEditingTitle(true);
             }}
           >
             {card.title}
@@ -199,6 +261,7 @@ const CategoryCard = ({
               className="connection-button"
               title="Connect to another card"
               onClick={handleStartConnection}
+              disabled={isLockedByOthers}
             >
               <LinkIcon />
               <span>Connect</span>
@@ -207,6 +270,7 @@ const CategoryCard = ({
               className="add-child-button"
               title="Add new answer"
               onClick={handleAddAnswer}
+              disabled={isLockedByOthers}
             >
               <FileIcon />
               <span>Add Answer</span>
@@ -224,6 +288,7 @@ const CategoryCard = ({
               className="quick-action-btn"
               onClick={handleStartConnection}
               title="Connect"
+              disabled={isLockedByOthers}
             >
               <LinkIcon />
             </button>
@@ -231,6 +296,7 @@ const CategoryCard = ({
               className="quick-action-btn"
               onClick={handleAddAnswer}
               title="Add Answer"
+              disabled={isLockedByOthers}
             >
               <PlusIcon />
             </button>
@@ -248,12 +314,7 @@ const CategoryCard = ({
             className="connection-handle"
             onClick={(e) => {
               e.stopPropagation();
-              const rect = cardRef.current.getBoundingClientRect();
-              const pos = {
-                x: rect.left + rect.width / 2,
-                y: rect.top + rect.height / 2
-              };
-              onConnectStart(card.id, pos);
+              handleStartConnection(e);
             }}
           />
         </div>
@@ -262,18 +323,19 @@ const CategoryCard = ({
   );
 };
 
-// Use React.memo to prevent unnecessary re-renders
+// Optimization: Prevent unnecessary re-renders
 const arePropsEqual = (prevProps, nextProps) => {
-  // Only re-render if these props change
-  return (
-    prevProps.card.id === nextProps.card.id &&
-    prevProps.card.title === nextProps.card.title &&
-    JSON.stringify(prevProps.card.position) === JSON.stringify(nextProps.card.position) &&
-    prevProps.isSelected === nextProps.isSelected &&
-    prevProps.isHovered === nextProps.isHovered &&
-    prevProps.isRelated === nextProps.isRelated &&
-    prevProps.connectMode === nextProps.connectMode
-  );
+  const sameCard = prevProps.card.id === nextProps.card.id &&
+                  prevProps.card.title === nextProps.card.title &&
+                  JSON.stringify(prevProps.card.position) === JSON.stringify(nextProps.card.position);
+  
+  const sameState = prevProps.isSelected === nextProps.isSelected &&
+                   prevProps.isHovered === nextProps.isHovered &&
+                   prevProps.isRelated === nextProps.isRelated &&
+                   prevProps.connectMode === nextProps.connectMode &&
+                   prevProps.isLocked === nextProps.isLocked;
+  
+  return sameCard && sameState;
 };
 
 export default memo(CategoryCard, arePropsEqual);

@@ -1,13 +1,22 @@
-import React, { useRef, useEffect, useState, useCallback, useMemo, Suspense, lazy } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo, Suspense, lazy, useContext } from 'react';
 import './Canvas.css';
 import CardConnection from '../Card/CardConnection';
 import ActionBar from '../ActionBar/ActionBar';
+import MiniMap from './MiniMap';
+import OffscreenPointers from './OffscreenPointers';
+import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import { useCanvas } from '../../context/CanvasContext';
 import { useCards } from '../../context/CardContext';
+import { useCollaboration } from '../../context/CollaborationContext';
+import AuthContext from '../../context/AuthContext';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import { useZoomAndPan } from '../../hooks/useZoomAndPan';
+import CursorTrail from '../Collaboration/CursorTrail';
+import ActiveUsers from '../Collaboration/ActiveUsers';
+import SpacesSidebar from '../Collaboration/SpacesSidebar';
+import CardLock from '../Collaboration/CardLock';
 
 // Lazy load card components
 const CategoryCard = lazy(() => import('../Card/CategoryCard'));
@@ -39,7 +48,7 @@ const Canvas = () => {
   const connectLineRef = useRef(null);
   const renderTimerRef = useRef(null);
   const zoomTimerRef = useRef(null);
-  const { zoom, pan, canvasToScreen, handleZoom, handlePan, setIsDragging, resetView } = useCanvas();
+  const { zoom, pan, canvasToScreen, screenToCanvas, handleZoom, handlePan, setIsDragging, resetView } = useCanvas();
   const { 
     cards, 
     connections, 
@@ -52,8 +61,23 @@ const Canvas = () => {
     moveCard,
     finalizeMoveCard,
     deleteSelectedCards,
-    getCardById
+    getCardById,
+    setCurrentSpace,
+    currentSpaceId
   } = useCards();
+  
+  const { 
+    isConnected, 
+    updateCursorPosition, 
+    lockCard, 
+    unlockCard, 
+    isCardLockedByMe, 
+    isCardLockedByOthers,
+    currentSpace,
+    registerCardContextSync
+  } = useCollaboration();
+  
+  const { currentUser } = useContext(AuthContext);
   
   const [connectMode, setConnectMode] = useState(false);
   const [connectSource, setConnectSource] = useState(null);
@@ -63,6 +87,7 @@ const Canvas = () => {
   const [forceUpdate, setForceUpdate] = useState(0);
   const [isZooming, setIsZooming] = useState(false);
   const [isHighPerformanceMode, setIsHighPerformanceMode] = useState(false);
+  const [showCollaborationUI, setShowCollaborationUI] = useState(true);
   
   // Panning state - improved implementation
   const [isPanning, setIsPanning] = useState(false);
@@ -74,6 +99,9 @@ const Canvas = () => {
     lastY: 0,
     animationFrame: null
   });
+  
+  const [showMiniMap, setShowMiniMap] = useState(true);
+  const [showOffscreenPointers, setShowOffscreenPointers] = useState(true);
   
   // Setup keyboard shortcuts
   useKeyboardShortcuts(canvasRef);
@@ -91,13 +119,14 @@ const Canvas = () => {
     setSelectedCardIds,
     moveCard,
     finalizeMoveCard,
-    setIsMoving: setIsDragging
+    setIsMoving: setIsDragging,
+    isCardLocked: isCardLockedByOthers // Prevent moving cards locked by others
   });
   
   // Initialize zoom and pan functionality
   const zoomHandlers = useZoomAndPan(canvasRef);
 
-  // Listen for connect mode toggle events
+  // Listen for keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'c') {
@@ -107,6 +136,21 @@ const Canvas = () => {
       // Toggle high-performance mode with 'h' key
       if (e.key === 'h') {
         setIsHighPerformanceMode(prev => !prev);
+      }
+      
+      // Toggle minimap with 'm' key
+      if (e.key === 'm') {
+        setShowMiniMap(prev => !prev);
+      }
+      
+      // Toggle offscreen pointers with 'p' key
+      if (e.key === 'p') {
+        setShowOffscreenPointers(prev => !prev);
+      }
+      
+      // Toggle collaboration UI with 'u' key
+      if (e.key === 'u') {
+        setShowCollaborationUI(prev => !prev);
       }
     };
     
@@ -196,6 +240,8 @@ const Canvas = () => {
                                   e.target.closest('.action-bar') ||
                                   e.target.closest('.zoom-controls') ||
                                   e.target.closest('.connect-mode-indicator') ||
+                                  e.target.closest('.spaces-sidebar') ||
+                                  e.target.closest('.active-users') ||
                                   e.target.closest('button') ||
                                   e.target.closest('input') ||
                                   e.target.closest('svg');
@@ -220,6 +266,12 @@ const Canvas = () => {
 
     // Handle mouse move for panning
     const handleMouseMove = (e) => {
+      // Send cursor position to collaboration service
+      if (isConnected && screenToCanvas) {
+        const canvasPos = screenToCanvas({ x: e.clientX, y: e.clientY });
+        updateCursorPosition(canvasPos.x, canvasPos.y);
+      }
+      
       if (!panningRef.current.isPanning) return;
       
       e.preventDefault();
@@ -303,7 +355,7 @@ const Canvas = () => {
         clearTimeout(zoomTimerRef.current);
       }
     };
-  }, [handleZoom, handlePan, setIsDragging, handleZoomWithPerformance]);
+  }, [handleZoom, handlePan, setIsDragging, handleZoomWithPerformance, isConnected, updateCursorPosition, screenToCanvas]);
 
   // Throttle render updates for better performance
   const throttleRender = useCallback(() => {
@@ -329,6 +381,8 @@ const Canvas = () => {
                                 e.target.closest('.action-bar') ||
                                 e.target.closest('.zoom-controls') ||
                                 e.target.closest('.connect-mode-indicator') ||
+                                e.target.closest('.spaces-sidebar') ||
+                                e.target.closest('.active-users') ||
                                 e.target.closest('button') ||
                                 e.target.closest('input') ||
                                 e.target.closest('svg');
@@ -391,6 +445,41 @@ const Canvas = () => {
     setHoveredCardId(null);
     setRelatedCardIds(new Set());
   }, []);
+
+  // Handle card selection with locking
+  const handleCardSelect = useCallback((cardId, isMultiSelect) => {
+    // Check if card is locked by another user
+    if (isCardLockedByOthers(cardId)) {
+      return; // Cannot select card locked by others
+    }
+    
+    // Lock the card when selected
+    if (!isCardLockedByMe(cardId)) {
+      lockCard(cardId);
+    }
+    
+    // Update selection
+    setSelectedCardIds(prev => {
+      if (isMultiSelect) {
+        return prev.includes(cardId) 
+          ? prev.filter(id => id !== cardId) 
+          : [...prev, cardId];
+      } else {
+        return [cardId];
+      }
+    });
+  }, [isCardLockedByMe, isCardLockedByOthers, lockCard, setSelectedCardIds]);
+
+  // Handle card deselection with unlocking
+  const handleCardDeselect = useCallback((cardId) => {
+    // Unlock the card when deselected
+    if (isCardLockedByMe(cardId)) {
+      unlockCard(cardId);
+    }
+    
+    // Update selection
+    setSelectedCardIds(prev => prev.filter(id => id !== cardId));
+  }, [setSelectedCardIds, isCardLockedByMe, unlockCard]);
 
   // Calculate visible area for card virtualization - optimized
   const isCardVisible = useCallback((cardPosition) => {
@@ -591,7 +680,10 @@ const Canvas = () => {
         onConnectStart: handleCardConnectStart,
         onConnectEnd: handleCardConnectEnd,
         onHover: handleCardHover,
-        onLeave: handleCardLeave
+        onLeave: handleCardLeave,
+        onSelect: handleCardSelect,
+        onDeselect: handleCardDeselect,
+        isLocked: isCardLockedByOthers(card.id) || isCardLockedByMe(card.id)
       };
       
       const CardComponent = card.type === 'category' ? CategoryCard : AnswerCard;
@@ -599,6 +691,7 @@ const Canvas = () => {
       return (
         <Suspense key={card.id} fallback={<CardPlaceholder position={card.position} type={card.type} />}>
           <CardComponent {...cardProps} />
+          <CardLock cardId={card.id} />
         </Suspense>
       );
     });
@@ -612,22 +705,13 @@ const Canvas = () => {
     handleCardConnectEnd, 
     handleCardHover, 
     handleCardLeave,
+    handleCardSelect,
+    handleCardDeselect,
     isZooming,
-    isHighPerformanceMode
+    isHighPerformanceMode,
+    isCardLockedByOthers,
+    isCardLockedByMe
   ]);
-
-  // Add test cards if none exist
-  useEffect(() => {
-    if (cards.length === 0) {
-      console.log('No cards found, creating test cards...');
-      setTimeout(() => {
-        addCard('category');
-        setTimeout(() => {
-          addCard('answer');
-        }, 100);
-      }, 1000);
-    }
-  }, [cards.length, addCard]);
 
   // Performance stats
   const stats = useMemo(() => {
@@ -648,6 +732,25 @@ const Canvas = () => {
     isZooming
   ]);
 
+  // Register sync callback with CollaborationContext
+  useEffect(() => {
+    console.log('Canvas: Registering sync callback', { registerCardContextSync: !!registerCardContextSync, setCurrentSpace: !!setCurrentSpace });
+    if (registerCardContextSync && setCurrentSpace) {
+      console.log('Canvas: About to register callback function:', setCurrentSpace);
+      registerCardContextSync(setCurrentSpace);
+      console.log('Canvas: Sync callback registered successfully');
+    }
+  }, [registerCardContextSync]);
+
+  // Debug current space states
+  useEffect(() => {
+    console.log('Canvas: Space states updated', { 
+      currentSpaceId, 
+      currentSpace: currentSpace?.name || 'none',
+      showMessage: !currentSpaceId && showCollaborationUI 
+    });
+  }, [currentSpaceId, currentSpace, showCollaborationUI]);
+
   return (
     <div 
       className={`canvas-container ${connectMode ? 'connect-mode' : ''} ${isZooming ? 'zooming' : ''}`}
@@ -666,6 +769,17 @@ const Canvas = () => {
       {renderGrid}
       
       <div className={`canvas ${isPanning ? 'moving' : ''}`}>
+        {/* No Space Selected Message */}
+        {!currentSpaceId && showCollaborationUI && (
+          <div className="no-space-message">
+            <div className="no-space-content">
+              <h3>🌐 No Space Selected</h3>
+              <p>Select a space from the sidebar or create a new one to start collaborating.</p>
+              <p>Cards are organized by spaces to keep your work separated.</p>
+            </div>
+          </div>
+        )}
+        
         {/* Card connections */}
         <div className="connections-container" style={{ transform: transformStyle }}>
           {renderedConnections}
@@ -701,6 +815,27 @@ const Canvas = () => {
           >
             {isHighPerformanceMode ? '⚡' : '⚙️'}
           </button>
+          <button 
+            className={`zoom-button ${showMiniMap ? 'active' : ''}`} 
+            onClick={() => setShowMiniMap(prev => !prev)} 
+            title="Toggle Mini-Map"
+          >
+            🗺️
+          </button>
+          <button 
+            className={`zoom-button ${showOffscreenPointers ? 'active' : ''}`} 
+            onClick={() => setShowOffscreenPointers(prev => !prev)} 
+            title="Toggle Offscreen Pointers"
+          >
+            📍
+          </button>
+          <button 
+            className={`zoom-button ${showCollaborationUI ? 'active' : ''}`} 
+            onClick={() => setShowCollaborationUI(prev => !prev)} 
+            title="Toggle Collaboration UI"
+          >
+            👥
+          </button>
         </div>
         
         {/* Connection line while connecting */}
@@ -724,8 +859,53 @@ const Canvas = () => {
           </svg>
         )}
         
-        {/* Performance stats - remove in production */}
+        {/* Mini-map */}
+        {showMiniMap && <MiniMap />}
         
+        {/* Offscreen Pointers */}
+        {showOffscreenPointers && <OffscreenPointers />}
+        
+        {/* Keyboard Shortcuts Help */}
+        <KeyboardShortcutsHelp />
+        
+        {/* Collaboration UI Components */}
+        {showCollaborationUI && (
+          <>
+            {/* Spaces Sidebar */}
+            <SpacesSidebar />
+            
+            {/* Active Users */}
+            <ActiveUsers />
+            
+            {/* Cursor Trails */}
+            <CursorTrail />
+            
+            {/* Connection Status */}
+            <div className="connection-status">
+              <span className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
+                {isConnected ? '🟢' : '🔴'}
+              </span>
+              <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+            </div>
+            
+            {/* Space Indicator */}
+            {currentSpace && (
+              <div className="current-space-indicator">
+                <span className="space-icon">🌐</span>
+                <span>{currentSpace.name}</span>
+                {currentSpace.isPublic && <span className="public-badge">Public</span>}
+              </div>
+            )}
+            
+            {/* Offline Mode Notice */}
+            {!isConnected && (
+              <div className="offline-notice">
+                <span className="offline-icon">⚠️</span>
+                <span>Collaboration features are offline</span>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
