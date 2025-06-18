@@ -43,7 +43,7 @@ class WebSocketService {
         this.isConnecting = true;
         console.log('WebSocket: Starting connection...');
         
-        const wsUrl = 'ws://localhost:5000';
+        const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:5000';
         console.log('WebSocket: Connecting to', wsUrl);
         
         this.socket = new WebSocket(wsUrl);
