@@ -131,8 +131,10 @@ export const CollaborationProvider = ({ children }) => {
         return [...filtered, {
           id: data.userId,
           name: data.userName,
+          username: data.userName,
           color: data.userColor,
           cursor: { x: 0, y: 0 },
+          cursorPosition: { x: 0, y: 0 },
           lastActivity: data.timestamp
         }];
       });
@@ -160,6 +162,19 @@ export const CollaborationProvider = ({ children }) => {
           userColor: data.userColor
         });
         return newPositions;
+      });
+      
+      // Also update activeUsers with cursor position for CursorTrail component
+      setActiveUsers(prev => {
+        return prev.map(user => 
+          user.id === data.userId 
+            ? { 
+                ...user, 
+                cursorPosition: { x: data.x, y: data.y },
+                cursor: { x: data.x, y: data.y }
+              }
+            : user
+        );
       });
     };
     

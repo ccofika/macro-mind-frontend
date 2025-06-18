@@ -212,6 +212,14 @@ class WebSocketService {
         this.emit('userLeft', data.userId);
         break;
         
+      case 'user:join':
+        this.emit('userJoined', data);
+        break;
+        
+      case 'user:leave':
+        this.emit('userLeft', data);
+        break;
+        
       case 'cursor:move':
         this.emit('cursorMove', data);
         break;
@@ -222,6 +230,26 @@ class WebSocketService {
         
       case 'card:unlocked':
         this.emit('cardUnlocked', data);
+        break;
+        
+      case 'card:created':
+        this.emit('cardCreated', data);
+        break;
+        
+      case 'card:updated':
+        this.emit('cardUpdated', data);
+        break;
+        
+      case 'card:deleted':
+        this.emit('cardDeleted', data);
+        break;
+        
+      case 'connection:created':
+        this.emit('connectionCreated', data);
+        break;
+        
+      case 'connection:deleted':
+        this.emit('connectionDeleted', data);
         break;
         
       case 'error':
@@ -383,6 +411,81 @@ class WebSocketService {
     this.send({
       type: 'card:unlock',
       cardId: cardId
+    });
+  }
+  
+  /**
+   * Notify that a card was created
+   * @param {Object} card - Card data
+   */
+  notifyCardCreated(card) {
+    if (!this.isAuthenticated) {
+      return;
+    }
+
+    this.send({
+      type: 'card:created',
+      card: card
+    });
+  }
+
+  /**
+   * Notify that a card was updated
+   * @param {Object} card - Updated card data
+   */
+  notifyCardUpdated(card) {
+    if (!this.isAuthenticated) {
+      return;
+    }
+
+    this.send({
+      type: 'card:updated',
+      card: card
+    });
+  }
+
+  /**
+   * Notify that a card was deleted
+   * @param {string} cardId - ID of deleted card
+   */
+  notifyCardDeleted(cardId) {
+    if (!this.isAuthenticated) {
+      return;
+    }
+
+    this.send({
+      type: 'card:deleted',
+      cardId: cardId
+    });
+  }
+
+  /**
+   * Notify that a connection was created
+   * @param {Object} connection - Connection data
+   */
+  notifyConnectionCreated(connection) {
+    if (!this.isAuthenticated) {
+      return;
+    }
+
+    this.send({
+      type: 'connection:created',
+      connection: connection
+    });
+  }
+
+  /**
+   * Notify that a connection was deleted
+   * @param {string} connectionId - ID of deleted connection
+   */
+  notifyConnectionDeleted(connectionId) {
+    if (!this.isAuthenticated) {
+      return;
+    }
+
+    this.send({
+      type: 'connection:deleted',
+      connectionId: connectionId
     });
   }
   

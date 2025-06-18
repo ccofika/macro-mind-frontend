@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { v4 as uuidv4 } from 'uuid';
 import { useCanvas } from './CanvasContext';
 import { cardApi, connectionApi } from '../services/api';
+import websocketService from '../services/websocketService';
 
 const CardContext = createContext();
 
@@ -68,6 +69,81 @@ export const CardProvider = ({ children }) => {
     }
   }, [currentSpaceId, loadSpaceData]);
 
+  // Set up websocket event listeners for real-time collaboration
+  useEffect(() => {
+    const handleCardCreated = (data) => {
+      console.log('CardContext: Received card created event:', data);
+      // Add the new card to the state if it's not already there
+      setCards(prevCards => {
+        const exists = prevCards.some(card => card.id === data.card.id);
+        if (!exists) {
+          console.log('CardContext: Adding new card from remote user:', data.card.title);
+          return [...prevCards, data.card];
+        }
+        return prevCards;
+      });
+    };
+
+    const handleCardUpdated = (data) => {
+      console.log('CardContext: Received card updated event:', data);
+      // Update the card in the state
+      setCards(prevCards => {
+        return prevCards.map(card => 
+          card.id === data.card.id ? { ...card, ...data.card } : card
+        );
+      });
+    };
+
+    const handleCardDeleted = (data) => {
+      console.log('CardContext: Received card deleted event:', data);
+      // Remove the card from the state
+      setCards(prevCards => prevCards.filter(card => card.id !== data.cardId));
+      // Also remove any connections involving this card
+      setConnections(prevConnections => 
+        prevConnections.filter(conn => 
+          conn.sourceId !== data.cardId && conn.targetId !== data.cardId
+        )
+      );
+    };
+
+    const handleConnectionCreated = (data) => {
+      console.log('CardContext: Received connection created event:', data);
+      // Add the new connection if it doesn't exist
+      setConnections(prevConnections => {
+        const exists = prevConnections.some(conn => conn.id === data.connection.id);
+        if (!exists) {
+          console.log('CardContext: Adding new connection from remote user');
+          return [...prevConnections, data.connection];
+        }
+        return prevConnections;
+      });
+    };
+
+    const handleConnectionDeleted = (data) => {
+      console.log('CardContext: Received connection deleted event:', data);
+      // Remove the connection from the state
+      setConnections(prevConnections => 
+        prevConnections.filter(conn => conn.id !== data.connectionId)
+      );
+    };
+
+    // Register event listeners
+    websocketService.on('cardCreated', handleCardCreated);
+    websocketService.on('cardUpdated', handleCardUpdated);
+    websocketService.on('cardDeleted', handleCardDeleted);
+    websocketService.on('connectionCreated', handleConnectionCreated);
+    websocketService.on('connectionDeleted', handleConnectionDeleted);
+
+    // Cleanup event listeners
+    return () => {
+      websocketService.off('cardCreated', handleCardCreated);
+      websocketService.off('cardUpdated', handleCardUpdated);
+      websocketService.off('cardDeleted', handleCardDeleted);
+      websocketService.off('connectionCreated', handleConnectionCreated);
+      websocketService.off('connectionDeleted', handleConnectionDeleted);
+    };
+  }, []);
+
   // Add card history for undo/redo
   const addToHistory = useCallback((cardsSnapshot, connectionsSnapshot) => {
     const newHistory = history.slice(0, historyIndex + 1);
@@ -123,6 +199,9 @@ export const CardProvider = ({ children }) => {
           ? savedConnection
           : conn
       ));
+      
+      // Notify other users via websocket
+      websocketService.notifyConnectionCreated(savedConnection);
     } catch (err) {
       console.error("Failed to create connection on server:", err);
       // Connection still exists locally
@@ -161,6 +240,9 @@ export const CardProvider = ({ children }) => {
       setCards(prevCards => prevCards.map(card => 
         card.id === newCard.id ? savedCard : card
       ));
+      
+      // Notify other users via websocket
+      websocketService.notifyCardCreated(savedCard);
       
       // If there's a parent, create a connection
       if (parentId) {
@@ -201,6 +283,12 @@ export const CardProvider = ({ children }) => {
     try {
       // Update on server
       await cardApi.updateCard(id, updates);
+      
+      // Get the updated card and notify other users
+      const updatedCard = cards.find(card => card.id === id);
+      if (updatedCard) {
+        websocketService.notifyCardUpdated({ ...updatedCard, ...updates });
+      }
     } catch (err) {
       console.error(`Failed to update card ${id} on server:`, err);
       // Card is still updated locally
@@ -285,6 +373,11 @@ export const CardProvider = ({ children }) => {
         // Single id
         await cardApi.deleteCard(ids[0]);
       }
+      
+      // Notify other users via websocket for each deleted card
+      ids.forEach(cardId => {
+        websocketService.notifyCardDeleted(cardId);
+      });
     } catch (err) {
       console.error("Failed to delete card(s) on server:", err);
       // Cards are still deleted locally
@@ -311,6 +404,9 @@ export const CardProvider = ({ children }) => {
     try {
       // Delete on server
       await connectionApi.deleteConnection(connection.id);
+      
+      // Notify other users via websocket
+      websocketService.notifyConnectionDeleted(connection.id);
     } catch (err) {
       console.error("Failed to delete connection on server:", err);
       // Connection is still removed locally
