@@ -24,7 +24,6 @@ const AnswerCard = lazy(() => import('../Card/AnswerCard'));
 // Constants
 const BUFFER_SIZE = 700; // Buffer for card visibility
 const RENDER_THROTTLE = 16; // ~60fps
-const ZOOM_RENDER_DELAY = 150; // ms to delay full render during zooming
 
 // Placeholder component for cards during zooming
 const CardPlaceholder = ({ position, type }) => {
@@ -169,64 +168,10 @@ const Canvas = () => {
     }
   }, [connectMode, connectSource]);
   
-  // Enhanced zoom handling with performance optimizations
-  const handleZoomWithPerformance = useCallback((delta, point) => {
-    // Enter zooming state
-    setIsZooming(true);
-    
-    // Apply zoom
-    handleZoom(delta, point);
-    
-    // Clear any existing zoom timer
-    if (zoomTimerRef.current) {
-      clearTimeout(zoomTimerRef.current);
-    }
-    
-    // Set a timer to exit zooming state after a delay
-    zoomTimerRef.current = setTimeout(() => {
-      setIsZooming(false);
-      zoomTimerRef.current = null;
-      // Force update to ensure full render after zooming
-      setForceUpdate(prev => prev + 1);
-    }, ZOOM_RENDER_DELAY);
-    
-    // Throttle rendering updates
-    throttleRender();
-  }, [handleZoom]);
-
   // Enhanced panning implementation
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
-    // Enhanced wheel handling for smoother zooming centered on cursor
-    const handleWheel = (e) => {
-      e.preventDefault();
-      
-      // Normalize wheel delta across browsers
-      let delta;
-      
-      // Handle different delta modes
-      if (e.deltaMode === 1) { // DOM_DELTA_LINE
-        delta = e.deltaY * 0.05;
-      } else if (e.deltaMode === 2) { // DOM_DELTA_PAGE
-        delta = e.deltaY * 0.002;
-      } else { // DOM_DELTA_PIXEL (most common)
-        delta = e.deltaY * 0.001;
-      }
-      
-      // Limit maximum delta to prevent jumpy zooming
-      delta = Math.max(-0.5, Math.min(0.5, delta));
-      
-      // Get exact cursor position in client coordinates
-      const mousePos = {
-        x: e.clientX,
-        y: e.clientY
-      };
-      
-      // Apply zoom centered on cursor position with performance optimizations
-      handleZoomWithPerformance(delta, mousePos);
-    };
 
     // Handle mouse down for panning
     const handleMouseDown = (e) => {
@@ -329,15 +274,13 @@ const Canvas = () => {
       }
     };
 
-    // Add event listeners
-    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    // Add event listeners (wheel handling is done by useZoomAndPan hook)
     canvas.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
-      canvas.removeEventListener('wheel', handleWheel);
       canvas.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -352,13 +295,8 @@ const Canvas = () => {
       if (renderTimerRef.current) {
         clearTimeout(renderTimerRef.current);
       }
-      
-      // Clear zoom timer
-      if (zoomTimerRef.current) {
-        clearTimeout(zoomTimerRef.current);
-      }
     };
-  }, [handleZoom, handlePan, setIsDragging, handleZoomWithPerformance, isConnected, updateCursorPosition, screenToCanvas]);
+  }, [handlePan, setIsDragging, isConnected, updateCursorPosition, screenToCanvas]);
 
   // Throttle render updates for better performance
   const throttleRender = useCallback(() => {
@@ -408,9 +346,6 @@ const Canvas = () => {
 
   // Handle card hover
   const handleCardHover = useCallback((cardId) => {
-    // Skip hover effects during zooming for performance
-    if (isZooming) return;
-    
     setHoveredCardId(cardId);
     
     // Find related cards through connections
@@ -424,7 +359,7 @@ const Canvas = () => {
     });
     
     setRelatedCardIds(related);
-  }, [connections, isZooming]);
+  }, [connections]);
 
   // Clear hover state
   const handleCardLeave = useCallback(() => {
@@ -538,18 +473,13 @@ const Canvas = () => {
 
   // Memoized visible connections calculation with set-based optimization
   const visibleConnections = useMemo(() => {
-    // During zooming, limit connections for performance
-    if (isZooming && connections.length > 50) {
-      return [];
-    }
-    
     // Create a set of visible card IDs for faster lookup
     const visibleCardIds = new Set(visibleCards.map(card => card.id));
     
     return connections.filter(connection => {
       return visibleCardIds.has(connection.sourceId) || visibleCardIds.has(connection.targetId);
     });
-  }, [connections, visibleCards, isZooming]);
+  }, [connections, visibleCards]);
 
   // Calculate transform style for canvas elements - memoized
   const transformStyle = useMemo(() => {
@@ -622,16 +552,16 @@ const Canvas = () => {
       x: window.innerWidth / 2,
       y: window.innerHeight / 2
     };
-    handleZoomWithPerformance(-0.3, center);
-  }, [handleZoomWithPerformance]);
+    handleZoom(0.3, center);
+  }, [handleZoom]);
 
   const handleZoomOut = useCallback(() => {
     const center = {
       x: window.innerWidth / 2,
       y: window.innerHeight / 2
     };
-    handleZoomWithPerformance(0.3, center);
-  }, [handleZoomWithPerformance]);
+    handleZoom(-0.3, center);
+  }, [handleZoom]);
 
   const handleResetZoom = useCallback(() => {
     resetView();
@@ -640,11 +570,6 @@ const Canvas = () => {
 
   // Render connection lines between cards - memoized
   const renderedConnections = useMemo(() => {
-    // Skip connections during zooming in high performance mode
-    if (isZooming && isHighPerformanceMode) {
-      return null;
-    }
-    
     return visibleConnections.map((connection) => {
       const sourceCard = getCardById(connection.sourceId);
       const targetCard = getCardById(connection.targetId);
@@ -667,7 +592,7 @@ const Canvas = () => {
         />
       );
     });
-  }, [visibleConnections, getCardById, hoveredCardId, isZooming, isHighPerformanceMode]);
+  }, [visibleConnections, getCardById, hoveredCardId]);
   
   // Render cards - memoized
   const renderedCards = useMemo(() => {
