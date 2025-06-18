@@ -141,6 +141,8 @@ const AnswerCard = ({
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     
+    console.log('AnswerCard: Title changed for card:', card.id, 'New title:', newTitle);
+    
     // Update local state with debounced server/websocket updates
     updateCardDebounced(card.id, { title: newTitle });
   };
@@ -157,6 +159,8 @@ const AnswerCard = ({
     const newContent = e.target.value;
     setLocalContent(newContent);
     
+    console.log('AnswerCard: Content changed for card:', card.id, 'New content length:', newContent.length);
+    
     // Clear existing timeout
     if (debouncedUpdateRef.current) {
       clearTimeout(debouncedUpdateRef.current);
@@ -164,6 +168,7 @@ const AnswerCard = ({
     
     // Use debounced update for content changes
     debouncedUpdateRef.current = setTimeout(() => {
+      console.log('AnswerCard: Sending debounced content update for card:', card.id);
       updateCardDebounced(card.id, { content: newContent });
       debouncedUpdateRef.current = null;
     }, 300);

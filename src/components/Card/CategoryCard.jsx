@@ -136,6 +136,8 @@ const CategoryCard = ({
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     
+    console.log('CategoryCard: Title changed for card:', card.id, 'New title:', newTitle);
+    
     // Update local state with debounced server/websocket updates
     updateCardDebounced(card.id, { title: newTitle });
   };

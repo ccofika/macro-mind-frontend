@@ -353,6 +353,8 @@ export const CardProvider = ({ children }) => {
 
   // Update card
   const updateCard = useCallback(async (id, updates) => {
+    console.log('CardContext: updateCard called for card:', id, 'with updates:', updates);
+    
     // Store the current card before update for websocket notification
     const currentCard = cards.find(card => card.id === id);
     
@@ -383,6 +385,8 @@ export const CardProvider = ({ children }) => {
 
   // Debounced version for text updates
   const updateCardDebounced = useCallback((id, updates) => {
+    console.log('CardContext: updateCardDebounced called for card:', id, 'with updates:', updates);
+    
     // Update local state immediately for responsive UI
     setCards(prevCards => {
       return prevCards.map(card => 
@@ -469,7 +473,7 @@ export const CardProvider = ({ children }) => {
       // Now finalize the move with current positions
       (async () => {
         try {
-          console.log("Finalizing card positions...");
+          console.log("CardContext: Finalizing card positions...");
           
           // Get current positions of all cards
           const positions = currentCards.map(card => ({
@@ -477,7 +481,7 @@ export const CardProvider = ({ children }) => {
             position: card.position
           }));
           
-          console.log(`Sending ${positions.length} card positions to server`);
+          console.log(`CardContext: Sending ${positions.length} card positions to server:`, positions);
           
           // Update positions on server only (websocket already sent during drag)
           try {
