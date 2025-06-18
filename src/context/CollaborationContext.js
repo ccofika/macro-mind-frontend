@@ -14,6 +14,7 @@ export const CollaborationProvider = ({ children }) => {
   const [activeUsers, setActiveUsers] = useState([]);
   const [cursorPositions, setCursorPositions] = useState(new Map());
   const [lockedCards, setLockedCards] = useState(new Map());
+  const [selectedCards, setSelectedCards] = useState(new Map()); // userId -> cardId
   const [currentSpace, setCurrentSpace] = useState(null);
   const [spaces, setSpaces] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -240,25 +241,45 @@ export const CollaborationProvider = ({ children }) => {
       });
     };
     
-    // Card lock event
+    // Card lock/unlock events
     const handleCardLock = (data) => {
+      console.log('Collaboration: Card locked:', data);
       setLockedCards(prev => {
-        const newLocks = new Map(prev);
-        newLocks.set(data.cardId, {
+        const newLocked = new Map(prev);
+        newLocked.set(data.cardId, {
           userId: data.userId,
           userName: data.userName,
           userColor: data.userColor
         });
-        return newLocks;
+        return newLocked;
       });
     };
     
-    // Card unlock event
     const handleCardUnlock = (data) => {
+      console.log('Collaboration: Card unlocked:', data);
       setLockedCards(prev => {
-        const newLocks = new Map(prev);
-        newLocks.delete(data.cardId);
-        return newLocks;
+        const newLocked = new Map(prev);
+        newLocked.delete(data.cardId);
+        return newLocked;
+      });
+    };
+    
+    // Card selection events
+    const handleCardSelected = (data) => {
+      console.log('Collaboration: Card selected:', data);
+      setSelectedCards(prev => {
+        const newSelected = new Map(prev);
+        newSelected.set(data.userId, data.cardId);
+        return newSelected;
+      });
+    };
+    
+    const handleCardDeselected = (data) => {
+      console.log('Collaboration: Card deselected:', data);
+      setSelectedCards(prev => {
+        const newSelected = new Map(prev);
+        newSelected.delete(data.userId);
+        return newSelected;
       });
     };
     
@@ -314,10 +335,12 @@ export const CollaborationProvider = ({ children }) => {
       };
       setCurrentSpace(spaceData);
       
-      // Clear users list when joining new space - will be repopulated by users:list event
-      console.log('Collaboration: Clearing active users for new space');
+      // Clear users list and selections when joining new space - will be repopulated by users:list event
+      console.log('Collaboration: Clearing active users and selections for new space');
       setActiveUsers([]);
       setCursorPositions(new Map());
+      setLockedCards(new Map());
+      setSelectedCards(new Map());
       
       // Sync with CardContext if callback is available
       console.log('Collaboration: Syncing with CardContext', { 
@@ -348,6 +371,8 @@ export const CollaborationProvider = ({ children }) => {
     websocketService.on('cursorMove', handleCursorUpdate);
     websocketService.on('cardLocked', handleCardLock);
     websocketService.on('cardUnlocked', handleCardUnlock);
+    websocketService.on('cardSelected', handleCardSelected);
+    websocketService.on('cardDeselected', handleCardDeselected);
     websocketService.on('usersList', handleUsersList);
     websocketService.on('spaceJoined', handleSpaceJoined);
     websocketService.on('close', handleClose);
@@ -366,6 +391,8 @@ export const CollaborationProvider = ({ children }) => {
       websocketService.off('cursorMove', handleCursorUpdate);
       websocketService.off('cardLocked', handleCardLock);
       websocketService.off('cardUnlocked', handleCardUnlock);
+      websocketService.off('cardSelected', handleCardSelected);
+      websocketService.off('cardDeselected', handleCardDeselected);
       websocketService.off('usersList', handleUsersList);
       websocketService.off('spaceJoined', handleSpaceJoined);
       websocketService.off('close', handleClose);
@@ -459,6 +486,16 @@ export const CollaborationProvider = ({ children }) => {
     websocketService.unlockCard(cardId);
   }, [isConnected]);
   
+  const selectCard = useCallback((cardId) => {
+    if (!isConnected) return;
+    websocketService.selectCard(cardId);
+  }, [isConnected]);
+  
+  const deselectCard = useCallback((cardId) => {
+    if (!isConnected) return;
+    websocketService.deselectCard(cardId);
+  }, [isConnected]);
+  
   // Helper functions
   const isCardLockedByMe = useCallback((cardId) => {
     if (!currentUser || !lockedCards.has(cardId)) return false;
@@ -478,12 +515,36 @@ export const CollaborationProvider = ({ children }) => {
     return activeUsers.find(user => user.id === userId) || null;
   }, [activeUsers]);
   
+  const isCardSelectedByUser = useCallback((cardId, userId) => {
+    return selectedCards.get(userId) === cardId;
+  }, [selectedCards]);
+  
+  const getCardSelectedByUser = useCallback((userId) => {
+    return selectedCards.get(userId) || null;
+  }, [selectedCards]);
+  
+  const isCardSelectedByMe = useCallback((cardId) => {
+    if (!currentUser) return false;
+    return selectedCards.get(currentUser._id) === cardId;
+  }, [currentUser, selectedCards]);
+  
+  const isCardSelectedByOthers = useCallback((cardId) => {
+    if (!currentUser) return false;
+    for (const [userId, selectedCardId] of selectedCards) {
+      if (userId !== currentUser._id && selectedCardId === cardId) {
+        return true;
+      }
+    }
+    return false;
+  }, [currentUser, selectedCards]);
+  
   // Context value
   const value = {
     // State
     activeUsers,
     cursorPositions,
     lockedCards,
+    selectedCards,
     currentSpace,
     spaces,
     isConnected,
@@ -502,12 +563,18 @@ export const CollaborationProvider = ({ children }) => {
     updateCursorPosition,
     lockCard,
     unlockCard,
+    selectCard,
+    deselectCard,
     
     // Helpers
     isCardLockedByMe,
     isCardLockedByOthers,
     getCardLockInfo,
     getUserById,
+    isCardSelectedByUser,
+    getCardSelectedByUser,
+    isCardSelectedByMe,
+    isCardSelectedByOthers,
     
     // Card context sync
     registerCardContextSync

@@ -248,6 +248,14 @@ class WebSocketService {
         this.emit('cardUnlocked', data);
         break;
         
+      case 'card:selected':
+        this.emit('cardSelected', data);
+        break;
+        
+      case 'card:deselected':
+        this.emit('cardDeselected', data);
+        break;
+        
       case 'card:created':
         this.emit('cardCreated', data);
         break;
@@ -434,11 +442,41 @@ class WebSocketService {
    */
   unlockCard(cardId) {
     if (!this.isAuthenticated) {
-      return;
+      return false;
     }
 
-    this.send({
+    return this.send({
       type: 'card:unlock',
+      cardId: cardId
+    });
+  }
+  
+  /**
+   * Select a card
+   * @param {string} cardId - Card ID to select
+   */
+  selectCard(cardId) {
+    if (!this.isAuthenticated) {
+      return false;
+    }
+
+    return this.send({
+      type: 'card:select',
+      cardId: cardId
+    });
+  }
+  
+  /**
+   * Deselect a card
+   * @param {string} cardId - Card ID to deselect
+   */
+  deselectCard(cardId) {
+    if (!this.isAuthenticated) {
+      return false;
+    }
+
+    return this.send({
+      type: 'card:deselect',
       cardId: cardId
     });
   }

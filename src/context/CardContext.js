@@ -3,10 +3,19 @@ import { v4 as uuidv4 } from 'uuid';
 import { useCanvas } from './CanvasContext';
 import { cardApi, connectionApi } from '../services/api';
 import websocketService from '../services/websocketService';
+import { cardService } from '../services/cardService';
+import { useCollaboration } from './CollaborationContext';
+import { CollaborationContext } from './CollaborationContext';
 
 const CardContext = createContext();
 
-export const useCards = () => useContext(CardContext);
+export const useCards = () => {
+  const context = useContext(CardContext);
+  if (!context) {
+    throw new Error('useCards must be used within a CardProvider');
+  }
+  return context;
+};
 
 export const CardProvider = ({ children }) => {
   const [cards, setCards] = useState([]);
@@ -17,8 +26,18 @@ export const CardProvider = ({ children }) => {
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [currentSpaceId, setCurrentSpaceId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   
   const { screenToCanvas } = useCanvas();
+
+  // Get collaboration context for integrated selection
+  const collaboration = useContext(useCollaboration);
+  const {
+    selectCard: collaborationSelectCard,
+    deselectCard: collaborationDeselectCard,
+    isCardSelectedByMe,
+    selectedCards
+  } = collaboration || {};
 
   // Function to set current space (called from CollaborationContext)
   const setCurrentSpace = useCallback((spaceId) => {
@@ -415,21 +434,37 @@ export const CardProvider = ({ children }) => {
 
   // Handle card selection
   const selectCard = useCallback((id, isMultiSelect = false) => {
-    setSelectedCardIds(prev => {
-      if (isMultiSelect) {
-        return prev.includes(id) 
-          ? prev.filter(cardId => cardId !== id) // Deselect if already selected
-          : [...prev, id]; // Add to selection
-      } else {
-        return [id]; // Single selection
-      }
-    });
-  }, []);
+    // Use collaboration system for card selection
+    if (collaborationSelectCard && !isMultiSelect) {
+      // Single selection through collaboration system
+      collaborationSelectCard(id);
+      setSelectedCardIds([id]);
+    } else {
+      // Fallback to local selection for multi-select or when collaboration is not available
+      setSelectedCardIds(prev => {
+        if (isMultiSelect) {
+          return prev.includes(id) 
+            ? prev.filter(cardId => cardId !== id) // Deselect if already selected
+            : [...prev, id]; // Add to selection
+        } else {
+          return [id]; // Single selection
+        }
+      });
+    }
+  }, [collaborationSelectCard]);
 
   // Clear selection
   const clearSelection = useCallback(() => {
+    // Deselect current card through collaboration if applicable
+    if (collaborationDeselectCard && selectedCardIds.length > 0) {
+      selectedCardIds.forEach(cardId => {
+        if (isCardSelectedByMe && isCardSelectedByMe(cardId)) {
+          collaborationDeselectCard(cardId);
+        }
+      });
+    }
     setSelectedCardIds([]);
-  }, []);
+  }, [collaborationDeselectCard, selectedCardIds, isCardSelectedByMe]);
 
   // Undo
   const undo = useCallback(() => {
@@ -466,10 +501,19 @@ export const CardProvider = ({ children }) => {
   // Delete selected cards
   const deleteSelectedCards = useCallback(() => {
     if (selectedCardIds.length > 0) {
+      // Deselect cards through collaboration before deleting
+      if (collaborationDeselectCard) {
+        selectedCardIds.forEach(cardId => {
+          if (isCardSelectedByMe && isCardSelectedByMe(cardId)) {
+            collaborationDeselectCard(cardId);
+          }
+        });
+      }
+      
       deleteCard(selectedCardIds);
       setSelectedCardIds([]);
     }
-  }, [selectedCardIds, deleteCard]);
+  }, [selectedCardIds, deleteCard, collaborationDeselectCard, isCardSelectedByMe]);
 
   // Get a card by ID
   const getCardById = useCallback((id) => {

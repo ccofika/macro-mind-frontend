@@ -50,7 +50,14 @@ const AnswerCard = ({
   const cardRef = useRef(null);
   const { selectCard, updateCard, createCard, getConnectedCards } = useCards();
   const { aiResponse, activeCardId, clearAIResponse } = useAI();
-  const { isCardLockedByMe, isCardLockedByOthers, lockCard, unlockCard } = useCollaboration();
+  const { 
+    isCardLockedByMe, 
+    isCardLockedByOthers, 
+    selectCard: collaborationSelectCard, 
+    deselectCard: collaborationDeselectCard,
+    isCardSelectedByMe,
+    isCardSelectedByOthers
+  } = useCollaboration();
   
   // Get connected cards count
   const connectedCards = getConnectedCards ? getConnectedCards(card.id) : [];
@@ -106,7 +113,7 @@ const AnswerCard = ({
       
       // Lock the card when selected
       if (!isCardLockedByMe(card.id) && !isSelected) {
-        lockCard(card.id);
+        collaborationSelectCard(card.id);
       }
       
       // Handle selection - always use onSelect if provided, otherwise fall back to context
@@ -171,10 +178,10 @@ const AnswerCard = ({
       
       // Unlock the card if it's locked by me when component unmounts
       if (isCardLockedByMe(card.id)) {
-        unlockCard(card.id);
+        collaborationDeselectCard(card.id);
       }
     };
-  }, [card.id, isCardLockedByMe, unlockCard]);
+  }, [card.id, isCardLockedByMe, collaborationDeselectCard]);
   
   // Copy content to clipboard
   const handleCopy = () => {
@@ -247,7 +254,7 @@ const AnswerCard = ({
     
     // Unlock the card when deselected
     if (isCardLockedByMe(card.id)) {
-      unlockCard(card.id);
+      collaborationDeselectCard(card.id);
     }
   };
 

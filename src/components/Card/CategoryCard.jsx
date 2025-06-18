@@ -65,7 +65,14 @@ const CategoryCard = ({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const cardRef = useRef(null);
   const { selectCard, updateCard, createCard, getConnectedCards } = useCards();
-  const { isCardLockedByMe, isCardLockedByOthers, lockCard, unlockCard } = useCollaboration();
+  const { 
+    isCardLockedByMe, 
+    isCardLockedByOthers, 
+    selectCard: collaborationSelectCard, 
+    deselectCard: collaborationDeselectCard,
+    isCardSelectedByMe,
+    isCardSelectedByOthers
+  } = useCollaboration();
   
   // Get connected cards count - memoize this calculation
   const connectionCount = React.useMemo(() => {
@@ -101,7 +108,7 @@ const CategoryCard = ({
       
       // Lock the card when selected
       if (!isCardLockedByMe(card.id) && !isSelected) {
-        lockCard(card.id);
+        collaborationSelectCard(card.id);
       }
       
       // Handle selection - always use onSelect if provided, otherwise fall back to context
@@ -178,7 +185,7 @@ const CategoryCard = ({
     
     // Unlock the card when deselected
     if (isCardLockedByMe(card.id)) {
-      unlockCard(card.id);
+      collaborationDeselectCard(card.id);
     }
   };
 

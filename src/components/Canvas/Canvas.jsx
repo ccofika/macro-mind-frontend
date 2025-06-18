@@ -72,6 +72,11 @@ const Canvas = () => {
     unlockCard, 
     isCardLockedByMe, 
     isCardLockedByOthers,
+    selectCard,
+    deselectCard,
+    isCardSelectedByMe,
+    isCardSelectedByOthers,
+    selectedCards,
     currentSpace,
     registerCardContextSync
   } = useCollaboration();
@@ -690,7 +695,14 @@ const Canvas = () => {
       return (
         <Suspense key={card.id} fallback={<CardPlaceholder position={card.position} type={card.type} />}>
           <CardComponent {...cardProps} />
-          <CardLock cardId={card.id} />
+          <CardLock 
+            cardId={card.id} 
+            cardPosition={card.position}
+            cardSize={{ 
+              width: 280, 
+              height: card.type === 'category' ? 120 : 160 
+            }}
+          />
         </Suspense>
       );
     });
