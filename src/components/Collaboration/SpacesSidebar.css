@@ -1,26 +1,29 @@
-/* SpacesSidebar.css */
+/* Professional Minimalist SpacesSidebar */
 
 .spaces-sidebar {
   position: absolute;
-  top: 70px;
-  left: 20px;
-  width: 300px;
-  background-color: rgba(18, 18, 20, 0.95);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  top: calc(var(--space-5xl) + 20px);
+  left: var(--space-2xl);
+  width: 320px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(25px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
   z-index: 100;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
+  animation: slideInFromRight var(--transition-slow);
 }
 
+/* Professional Header */
 .spaces-header {
-  padding: 16px;
-  background-color: rgba(0, 0, 0, 0.2);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: var(--space-xl) var(--space-2xl);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -28,97 +31,158 @@
 
 .spaces-header h3 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: white;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.spaces-header h3::before {
+  content: '';
+  width: var(--icon-md);
+  height: var(--icon-md);
+  background: var(--text-accent);
+  border-radius: 50%;
+  display: inline-block;
 }
 
 .create-space-button {
-  background-color: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  color: #3B82F6;
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 12px;
+  background: var(--surface-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-slow);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .create-space-button:hover {
-  background-color: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.5);
+  background: var(--surface-bg-hover);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
 }
 
+.create-space-button svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+
+/* Professional Create Form */
 .create-space-form {
-  padding: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  background-color: rgba(0, 0, 0, 0.1);
+  padding: var(--space-xl) var(--space-2xl);
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
 }
 
 .create-space-form input[type="text"] {
   width: 100%;
-  padding: 8px 12px;
-  background-color: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: white;
-  font-size: 14px;
-  margin-bottom: 12px;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-lg);
+  transition: all var(--transition-normal);
+  font-family: inherit;
 }
 
 .create-space-form input[type="text"]:focus {
   outline: none;
-  border-color: #3B82F6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  background: var(--glass-bg-strong);
+  border-color: var(--glass-border-active);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.create-space-form input[type="text"]::placeholder {
+  color: var(--text-tertiary);
 }
 
 .space-visibility {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-lg);
 }
 
 .space-visibility label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
+  gap: var(--space-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
   cursor: pointer;
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-normal);
+}
+
+.space-visibility label:hover {
+  background: var(--surface-bg-hover);
+  color: var(--text-primary);
+}
+
+.space-visibility input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--text-accent);
 }
 
 .submit-space-button {
   width: 100%;
-  padding: 8px;
-  background-color: #3B82F6;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--text-accent);
   color: white;
   border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all var(--transition-slow);
+  box-shadow: var(--shadow-md);
 }
 
 .submit-space-button:hover {
-  background-color: #2563EB;
+  background: #2563EB;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
+.submit-space-button:active {
+  transform: translateY(0);
+  transition-duration: var(--transition-fast);
+}
+
+/* Professional Spaces List */
 .spaces-list {
   overflow-y: auto;
   flex: 1;
+  padding: var(--space-sm);
 }
 
 .space-item {
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  transition: background-color 0.2s ease;
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-sm);
+  transition: all var(--transition-slow);
+  border: 1px solid transparent;
 }
 
 .space-item:hover {
-  background-color: rgba(255, 255, 255, 0.03);
+  background: var(--surface-bg-hover);
+  border-color: var(--glass-border-hover);
 }
 
 .space-item.active {
-  background-color: rgba(59, 130, 246, 0.1);
+  background: var(--surface-bg-active);
+  border-color: var(--glass-border-active);
+  box-shadow: var(--shadow-md);
 }
 
 .space-info {
@@ -131,235 +195,335 @@
 .space-name-container {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-md);
+  flex: 1;
 }
 
 .space-icon {
-  font-size: 16px;
-}
-
-.space-name {
-  font-size: 14px;
-  color: white;
-  font-weight: 500;
-}
-
-.space-public-badge {
-  background-color: rgba(16, 185, 129, 0.2);
-  color: #10B981;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-weight: 600;
-}
-
-.space-private-badge {
-  background-color: rgba(239, 68, 68, 0.2);
-  color: #EF4444;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-weight: 600;
-}
-
-.space-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.space-actions button {
-  background-color: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  width: 28px;
-  height: 28px;
+  width: var(--button-sm);
+  height: var(--button-sm);
+  background: var(--surface-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  color: var(--text-secondary);
+  transition: all var(--transition-normal);
 }
 
-.space-actions button:hover {
-  background-color: rgba(0, 0, 0, 0.4);
-  border-color: rgba(255, 255, 255, 0.2);
+.space-item:hover .space-icon {
+  background: var(--surface-bg-hover);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
 }
 
-.edit-space-button:hover {
-  background-color: rgba(59, 130, 246, 0.2);
+.space-item.active .space-icon {
+  background: var(--surface-bg-active);
+  border-color: var(--glass-border-active);
+  color: var(--text-accent);
 }
 
-.delete-space-button:hover {
-  background-color: rgba(239, 68, 68, 0.2);
+.space-icon svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
-.leave-space-button:hover {
-  background-color: rgba(239, 68, 68, 0.2);
+.space-name {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  flex: 1;
 }
 
-.active-space-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 4px 8px;
-  background-color: rgba(59, 130, 246, 0.1);
-  border-radius: 4px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+.space-item.active .space-name {
+  color: var(--text-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Professional Badges */
+.space-public-badge {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.space-private-badge {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+  font-size: var(--font-size-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .active-dot {
   width: 8px;
   height: 8px;
+  background: #10B981;
   border-radius: 50%;
-  background-color: #3B82F6;
-  animation: pulse 2s infinite;
+  animation: pulse 2s ease-in-out infinite;
+  margin-left: var(--space-sm);
 }
 
+/* Professional Space Actions */
+.space-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all var(--transition-normal);
+}
+
+.space-item:hover .space-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.space-actions button {
+  background: var(--surface-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  width: var(--button-sm);
+  height: var(--button-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-slow);
+  color: var(--text-tertiary);
+}
+
+.space-actions button:hover {
+  background: var(--surface-bg-hover);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.space-actions button svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+
+.edit-space-button:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: var(--text-accent);
+}
+
+.delete-space-button:hover,
+.leave-space-button:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #EF4444;
+}
+
+/* Professional Edit Form */
 .edit-space-form {
-  padding: 8px 0;
+  padding: var(--space-md) 0;
 }
 
 .edit-space-form input[type="text"] {
   width: 100%;
-  padding: 8px;
-  background-color: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: white;
-  font-size: 14px;
-  margin-bottom: 8px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-md);
+  transition: all var(--transition-normal);
 }
 
 .edit-space-form input[type="text"]:focus {
   outline: none;
-  border-color: #3B82F6;
+  background: var(--glass-bg-strong);
+  border-color: var(--glass-border-active);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 .edit-space-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--space-sm);
+  justify-content: flex-end;
 }
 
-.save-space-button, .cancel-edit-button {
-  flex: 1;
-  padding: 6px;
-  border-radius: 4px;
-  font-size: 12px;
+.save-space-button,
+.cancel-edit-button {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-slow);
+  border: 1px solid var(--glass-border);
 }
 
 .save-space-button {
-  background-color: #3B82F6;
+  background: var(--text-accent);
   color: white;
-  border: none;
+  border-color: var(--text-accent);
 }
 
 .save-space-button:hover {
-  background-color: #2563EB;
+  background: #2563EB;
+  transform: translateY(-1px);
 }
 
 .cancel-edit-button {
-  background-color: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--surface-bg);
+  color: var(--text-secondary);
 }
 
 .cancel-edit-button:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-  color: white;
+  background: var(--surface-bg-hover);
+  color: var(--text-primary);
 }
 
+/* Professional Empty State */
 .no-spaces {
-  padding: 20px;
+  padding: var(--space-4xl) var(--space-2xl);
   text-align: center;
-  color: rgba(255, 255, 255, 0.5);
 }
 
 .no-spaces p {
-  margin: 0 0 8px;
-  font-size: 14px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-md) 0;
 }
 
 .no-spaces-hint {
-  font-size: 12px;
-  opacity: 0.7;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
 }
 
+/* Professional Connection Error */
 .spaces-connection-error {
-  padding: 20px;
+  padding: var(--space-xl) var(--space-2xl);
   text-align: center;
-  color: rgba(255, 255, 255, 0.7);
+  background: rgba(239, 68, 68, 0.05);
+  border-top: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .connection-error-icon {
-  font-size: 24px;
-  display: block;
-  margin-bottom: 12px;
+  width: var(--icon-xl);
+  height: var(--icon-xl);
+  color: #EF4444;
+  margin: 0 auto var(--space-md);
 }
 
 .reconnect-button {
-  margin-top: 12px;
-  padding: 6px 12px;
-  background-color: #3B82F6;
-  color: white;
-  border: none;
-  border-radius: 4px;
+  background: var(--surface-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all var(--transition-slow);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0 auto;
 }
 
 .reconnect-button:hover {
-  background-color: rgba(59, 130, 246, 0.3);
+  background: var(--surface-bg-hover);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
 }
 
 .reconnect-button.reconnecting {
-  background-color: rgba(59, 130, 246, 0.2);
-  cursor: not-allowed;
   opacity: 0.7;
+  pointer-events: none;
 }
 
 .reconnect-button:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  opacity: 0.7;
 }
 
-@keyframes pulse {
-  0% {
-    opacity: 0.6;
-    transform: scale(0.9);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1);
-  }
-  100% {
-    opacity: 0.6;
-    transform: scale(0.9);
-  }
+/* Scrollbar Styling */
+.spaces-list::-webkit-scrollbar {
+  width: 6px;
 }
 
-/* Responsive styles */
+.spaces-list::-webkit-scrollbar-track {
+  background: var(--glass-bg);
+  border-radius: var(--radius-sm);
+  margin: var(--space-sm);
+}
+
+.spaces-list::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: var(--radius-sm);
+}
+
+.spaces-list::-webkit-scrollbar-thumb:hover {
+  background: var(--glass-border-hover);
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
   .spaces-sidebar {
-    width: 250px;
-    left: 10px;
+    width: 280px;
+    left: var(--space-lg);
+    top: calc(var(--space-4xl) + 20px);
+  }
+  
+  .spaces-header {
+    padding: var(--space-lg) var(--space-xl);
   }
   
   .spaces-header h3 {
-    font-size: 14px;
+    font-size: var(--font-size-base);
   }
   
   .create-space-button {
-    padding: 4px 8px;
-    font-size: 11px;
+    padding: var(--space-xs) var(--space-sm);
+    font-size: 10px;
   }
   
   .space-name {
-    font-size: 13px;
+    font-size: var(--font-size-xs);
+  }
+  
+  .space-actions button {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .spaces-sidebar,
+  .space-item,
+  .space-actions,
+  .active-dot,
+  .space-actions button {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .space-item {
+    border-width: 2px;
+  }
+  
+  .space-public-badge,
+  .space-private-badge {
+    border-width: 2px;
+  }
+  
+  .space-name {
+    color: var(--text-primary);
   }
 } 

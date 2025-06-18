@@ -326,8 +326,13 @@ const CategoryCard = ({
       {isExpanded ? (
         <>
           <div className="card-content">
-            <div className="category-description">
-              <p>Category containing {connectionCount} answer{connectionCount !== 1 ? 's' : ''}</p>
+            <div className="category-description glass-container p-lg">
+              <div className="text-secondary text-sm">
+                Category containing <span className="text-accent font-medium">{connectionCount}</span> answer{connectionCount !== 1 ? 's' : ''}
+              </div>
+              <div className="text-tertiary text-xs" style={{marginTop: 'var(--space-sm)'}}>
+                Click "Add Answer" to create new responses or "Connect" to link with other cards
+              </div>
             </div>
           </div>
           
