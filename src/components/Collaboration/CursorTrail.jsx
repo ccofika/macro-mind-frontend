@@ -65,13 +65,18 @@ const CursorTrail = () => {
       
       // Hide cursor after inactivity (5 seconds)
       const hideTimeout = setTimeout(() => {
-        setCursors(prev => ({
-          ...prev,
-          [id]: { ...prev[id], visible: false }
-        }));
+        setCursors(prev => {
+          if (prev[id]) {
+            return {
+              ...prev,
+              [id]: { ...prev[id], visible: false }
+            };
+          }
+          return prev;
+        });
       }, 5000);
       
-      return () => clearTimeout(hideTimeout);
+      // Don't return cleanup function here as it interferes with forEach
     });
   }, [activeUsers, currentUser, zoomLevel, panOffset]);
   

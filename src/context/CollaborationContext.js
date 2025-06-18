@@ -115,6 +115,9 @@ export const CollaborationProvider = ({ children }) => {
       setIsConnected(true);
       setError(null);
       
+      // Clear any existing users before joining
+      setActiveUsers([]);
+      
       // Auto-join public space after authentication
       setTimeout(() => {
         console.log('Collaboration: Auto-joining public space');
@@ -181,11 +184,19 @@ export const CollaborationProvider = ({ children }) => {
     
     // User leave event
     const handleUserLeave = (data) => {
-      console.log('Collaboration: User left:', data.userId);
-      setActiveUsers(prev => prev.filter(user => user.id !== data.userId));
+      const leavingUserId = data.userId || data;
+      console.log('Collaboration: User left:', leavingUserId);
+      
+      // Validate that we have a valid user ID
+      if (!leavingUserId) {
+        console.warn('Collaboration: Invalid user leave data:', data);
+        return;
+      }
+      
+      setActiveUsers(prev => prev.filter(user => user.id !== leavingUserId));
       setCursorPositions(prev => {
         const newPositions = new Map(prev);
-        newPositions.delete(data.userId);
+        newPositions.delete(leavingUserId);
         return newPositions;
       });
     };
@@ -294,6 +305,11 @@ export const CollaborationProvider = ({ children }) => {
         isPublic: data.isPublic
       };
       setCurrentSpace(spaceData);
+      
+      // Clear users list when joining new space - will be repopulated by users:list event
+      console.log('Collaboration: Clearing active users for new space');
+      setActiveUsers([]);
+      setCursorPositions(new Map());
       
       // Sync with CardContext if callback is available
       console.log('Collaboration: Syncing with CardContext', { 
