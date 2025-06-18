@@ -113,6 +113,7 @@ const AnswerCard = ({
       
       // Lock the card when selected
       if (!isCardLockedByMe(card.id) && !isSelected) {
+        console.log('AnswerCard: Selecting card via collaboration:', card.id);
         collaborationSelectCard(card.id);
       }
       
@@ -259,6 +260,7 @@ const AnswerCard = ({
     
     // Unlock the card when deselected
     if (isCardLockedByMe(card.id)) {
+      console.log('AnswerCard: Deselecting card via collaboration:', card.id);
       collaborationDeselectCard(card.id);
     }
   };

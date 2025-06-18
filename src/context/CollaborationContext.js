@@ -324,6 +324,36 @@ export const CollaborationProvider = ({ children }) => {
       setActiveUsers(validUsers);
     };
     
+    // Locks list event (when joining a space)
+    const handleLocksList = (data) => {
+      console.log('Collaboration: Received locks list:', data);
+      const lockMap = new Map();
+      
+      data.forEach(lock => {
+        lockMap.set(lock.cardId, {
+          userId: lock.userId,
+          userName: lock.userName,
+          userColor: lock.userColor
+        });
+      });
+      
+      setLockedCards(lockMap);
+      console.log('Collaboration: Applied lock states for', lockMap.size, 'cards');
+    };
+    
+    // Selections list event (when joining a space)
+    const handleSelectionsList = (data) => {
+      console.log('Collaboration: Received selections list:', data);
+      const selectionMap = new Map();
+      
+      data.forEach(selection => {
+        selectionMap.set(selection.userId, selection.cardId);
+      });
+      
+      setSelectedCards(selectionMap);
+      console.log('Collaboration: Applied selection states for', selectionMap.size, 'users');
+    };
+
     // Space joined event
     const handleSpaceJoined = (data) => {
       console.log('Collaboration: handleSpaceJoined called with data:', data);
@@ -374,29 +404,33 @@ export const CollaborationProvider = ({ children }) => {
     websocketService.on('cardSelected', handleCardSelected);
     websocketService.on('cardDeselected', handleCardDeselected);
     websocketService.on('usersList', handleUsersList);
+    websocketService.on('locksList', handleLocksList);
+    websocketService.on('selectionsList', handleSelectionsList);
     websocketService.on('spaceJoined', handleSpaceJoined);
     websocketService.on('close', handleClose);
     console.log('Collaboration: All event listeners registered');
     
-    // Cleanup ALL event listeners on unmount
-    return () => {
-      console.log('Collaboration: Cleaning up all event listeners...');
-      websocketService.off('authenticated', handleAuthenticated);
-      websocketService.off('authError', handleAuthError);
-      websocketService.off('connected', handleConnected);
-      websocketService.off('disconnected', handleDisconnected);
-      websocketService.off('error', handleError);
-      websocketService.off('userJoined', handleUserJoin);
-      websocketService.off('userLeft', handleUserLeave);
-      websocketService.off('cursorMove', handleCursorUpdate);
-      websocketService.off('cardLocked', handleCardLock);
-      websocketService.off('cardUnlocked', handleCardUnlock);
-      websocketService.off('cardSelected', handleCardSelected);
-      websocketService.off('cardDeselected', handleCardDeselected);
-      websocketService.off('usersList', handleUsersList);
-      websocketService.off('spaceJoined', handleSpaceJoined);
-      websocketService.off('close', handleClose);
-    };
+          // Cleanup ALL event listeners on unmount
+      return () => {
+        console.log('Collaboration: Cleaning up all event listeners...');
+        websocketService.off('authenticated', handleAuthenticated);
+        websocketService.off('authError', handleAuthError);
+        websocketService.off('connected', handleConnected);
+        websocketService.off('disconnected', handleDisconnected);
+        websocketService.off('error', handleError);
+        websocketService.off('userJoined', handleUserJoin);
+        websocketService.off('userLeft', handleUserLeave);
+        websocketService.off('cursorMove', handleCursorUpdate);
+        websocketService.off('cardLocked', handleCardLock);
+        websocketService.off('cardUnlocked', handleCardUnlock);
+        websocketService.off('cardSelected', handleCardSelected);
+        websocketService.off('cardDeselected', handleCardDeselected);
+        websocketService.off('usersList', handleUsersList);
+        websocketService.off('locksList', handleLocksList);
+        websocketService.off('selectionsList', handleSelectionsList);
+        websocketService.off('spaceJoined', handleSpaceJoined);
+        websocketService.off('close', handleClose);
+      };
   }, []);
   
   // Space management functions
@@ -487,13 +521,21 @@ export const CollaborationProvider = ({ children }) => {
   }, [isConnected]);
   
   const selectCard = useCallback((cardId) => {
+    console.log('Collaboration: selectCard called for:', cardId, 'isConnected:', isConnected);
     if (!isConnected) return;
     websocketService.selectCard(cardId);
   }, [isConnected]);
   
   const deselectCard = useCallback((cardId) => {
+    console.log('Collaboration: deselectCard called for:', cardId, 'isConnected:', isConnected);
     if (!isConnected) return;
     websocketService.deselectCard(cardId);
+  }, [isConnected]);
+  
+  const clearAllSelections = useCallback(() => {
+    console.log('Collaboration: clearAllSelections called, isConnected:', isConnected);
+    if (!isConnected) return;
+    websocketService.clearAllSelections();
   }, [isConnected]);
   
   // Helper functions
@@ -565,6 +607,7 @@ export const CollaborationProvider = ({ children }) => {
     unlockCard,
     selectCard,
     deselectCard,
+    clearAllSelections,
     
     // Helpers
     isCardLockedByMe,

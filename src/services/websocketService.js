@@ -220,6 +220,14 @@ class WebSocketService {
         this.emit('usersList', data.users);
         break;
         
+      case 'locks:list':
+        this.emit('locksList', data.locks);
+        break;
+        
+      case 'selections:list':
+        this.emit('selectionsList', data.selections);
+        break;
+        
       case 'user:joined':
         this.emit('userJoined', data.user);
         break;
@@ -567,6 +575,19 @@ class WebSocketService {
     this.send({
       type: 'connection:deleted',
       connectionId: connectionId
+    });
+  }
+  
+  /**
+   * Clear all selections (when clicking on canvas)
+   */
+  clearAllSelections() {
+    if (!this.isAuthenticated) {
+      return;
+    }
+
+    this.send({
+      type: 'canvas:clearSelection'
     });
   }
   

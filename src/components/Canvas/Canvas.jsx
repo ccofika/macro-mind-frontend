@@ -68,12 +68,11 @@ const Canvas = () => {
   const { 
     isConnected, 
     updateCursorPosition, 
-    lockCard, 
-    unlockCard, 
     isCardLockedByMe, 
     isCardLockedByOthers,
-    selectCard,
-    deselectCard,
+    selectCard: collaborationSelectCard,
+    deselectCard: collaborationDeselectCard,
+    clearAllSelections: collaborationClearAllSelections,
     isCardSelectedByMe,
     isCardSelectedByOthers,
     selectedCards,
@@ -450,19 +449,23 @@ const Canvas = () => {
     setRelatedCardIds(new Set());
   }, []);
 
-  // Handle card selection with locking
+  // Handle card selection with collaboration
   const handleCardSelect = useCallback((cardId, isMultiSelect) => {
+    console.log('Canvas: handleCardSelect called for:', cardId, 'isMultiSelect:', isMultiSelect);
+    
     // Check if card is locked by another user
     if (isCardLockedByOthers(cardId)) {
+      console.log('Canvas: Card locked by others, cannot select');
       return; // Cannot select card locked by others
     }
     
-    // Lock the card when selected
-    if (!isCardLockedByMe(cardId)) {
-      lockCard(cardId);
+    // Use collaboration system for selection (single select only for now)
+    if (!isMultiSelect && collaborationSelectCard) {
+      console.log('Canvas: Selecting card via collaboration');
+      collaborationSelectCard(cardId);
     }
     
-    // Update selection
+    // Update local selection state
     setSelectedCardIds(prev => {
       if (isMultiSelect) {
         return prev.includes(cardId) 
@@ -472,18 +475,21 @@ const Canvas = () => {
         return [cardId];
       }
     });
-  }, [isCardLockedByMe, isCardLockedByOthers, lockCard, setSelectedCardIds]);
+  }, [isCardLockedByOthers, collaborationSelectCard, setSelectedCardIds]);
 
-  // Handle card deselection with unlocking
+  // Handle card deselection with collaboration
   const handleCardDeselect = useCallback((cardId) => {
-    // Unlock the card when deselected
-    if (isCardLockedByMe(cardId)) {
-      unlockCard(cardId);
+    console.log('Canvas: handleCardDeselect called for:', cardId);
+    
+    // Use collaboration system for deselection
+    if (isCardSelectedByMe(cardId) && collaborationDeselectCard) {
+      console.log('Canvas: Deselecting card via collaboration');
+      collaborationDeselectCard(cardId);
     }
     
-    // Update selection
+    // Update local selection state
     setSelectedCardIds(prev => prev.filter(id => id !== cardId));
-  }, [setSelectedCardIds, isCardLockedByMe, unlockCard]);
+  }, [setSelectedCardIds, isCardSelectedByMe, collaborationDeselectCard]);
 
   // Calculate visible area for card virtualization - optimized
   const isCardVisible = useCallback((cardPosition) => {

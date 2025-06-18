@@ -108,6 +108,7 @@ const CategoryCard = ({
       
       // Lock the card when selected
       if (!isCardLockedByMe(card.id) && !isSelected) {
+        console.log('CategoryCard: Selecting card via collaboration:', card.id);
         collaborationSelectCard(card.id);
       }
       
@@ -187,6 +188,7 @@ const CategoryCard = ({
     
     // Unlock the card when deselected
     if (isCardLockedByMe(card.id)) {
+      console.log('CategoryCard: Deselecting card via collaboration:', card.id);
       collaborationDeselectCard(card.id);
     }
   };

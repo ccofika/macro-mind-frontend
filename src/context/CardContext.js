@@ -60,6 +60,7 @@ export const CardProvider = ({ children }) => {
   const {
     selectCard: collaborationSelectCard,
     deselectCard: collaborationDeselectCard,
+    clearAllSelections: collaborationClearAllSelections,
     isCardSelectedByMe,
     selectedCards
   } = collaboration || {};
@@ -592,16 +593,24 @@ export const CardProvider = ({ children }) => {
 
   // Clear selection
   const clearSelection = useCallback(() => {
-    // Deselect current card through collaboration if applicable
-    if (collaborationDeselectCard && selectedCardIds.length > 0) {
-      selectedCardIds.forEach(cardId => {
-        if (isCardSelectedByMe && isCardSelectedByMe(cardId)) {
-          collaborationDeselectCard(cardId);
-        }
-      });
+    console.log('CardContext: Clearing all selections via collaboration');
+    
+    // Use collaboration system to clear all selections
+    if (collaborationClearAllSelections) {
+      collaborationClearAllSelections();
+    } else {
+      // Fallback: manual deselection
+      if (collaborationDeselectCard && selectedCardIds.length > 0) {
+        selectedCardIds.forEach(cardId => {
+          if (isCardSelectedByMe && isCardSelectedByMe(cardId)) {
+            collaborationDeselectCard(cardId);
+          }
+        });
+      }
     }
+    
     setSelectedCardIds([]);
-  }, [collaborationDeselectCard, selectedCardIds, isCardSelectedByMe]);
+  }, [collaborationClearAllSelections, collaborationDeselectCard, selectedCardIds, isCardSelectedByMe]);
 
   // Undo
   const undo = useCallback(() => {
