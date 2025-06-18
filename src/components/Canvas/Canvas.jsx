@@ -408,21 +408,54 @@ const Canvas = () => {
 
   // Start connection from a card in connect mode
   const handleCardConnectStart = useCallback((cardId) => {
+    console.log('Canvas: handleCardConnectStart called', { cardId, connectMode, connectSource });
     if (connectMode) {
+      console.log('Canvas: Setting connectSource to:', cardId);
       setConnectSource(cardId);
     }
-  }, [connectMode]);
+  }, [connectMode, connectSource]);
 
   // Finish connection on target card
   const handleCardConnectEnd = useCallback((cardId) => {
+    console.log('Canvas: handleCardConnectEnd called', { cardId, connectMode, connectSource });
     if (connectMode && connectSource && connectSource !== cardId) {
       console.log('Canvas: Creating connection from', connectSource, 'to', cardId);
       setConnectTarget(cardId);
       connectCards(connectSource, cardId);
       setConnectSource(null);
       setConnectTarget(null);
+    } else {
+      console.log('Canvas: handleCardConnectEnd - conditions not met', {
+        connectMode,
+        connectSource,
+        sameCard: connectSource === cardId
+      });
     }
-  }, [connectMode, connectSource, connectCards]);
+      }, [connectMode, connectSource, connectCards]);
+
+  // Unified connection handler for cards
+  const handleCardConnection = useCallback((cardId) => {
+    console.log('Canvas: handleCardConnection called', { cardId, connectMode, connectSource });
+    
+    if (!connectMode) {
+      console.log('Canvas: Not in connect mode, ignoring connection attempt');
+      return;
+    }
+    
+    if (!connectSource) {
+      // No source selected yet, this card becomes the source
+      console.log('Canvas: No source selected, setting as source:', cardId);
+      handleCardConnectStart(cardId);
+    } else if (connectSource !== cardId) {
+      // Source already selected and this is a different card, create connection
+      console.log('Canvas: Source already selected, creating connection to:', cardId);
+      handleCardConnectEnd(cardId);
+    } else {
+      // Clicking the same card that is already source - deselect it
+      console.log('Canvas: Clicking same source card, deselecting');
+      setConnectSource(null);
+    }
+  }, [connectMode, connectSource, handleCardConnectStart, handleCardConnectEnd]);
 
   // Handle card hover
   const handleCardHover = useCallback((cardId) => {
@@ -688,6 +721,7 @@ const Canvas = () => {
         isHovered,
         isRelated,
         connectMode,
+        onConnect: handleCardConnection,
         onConnectStart: handleCardConnectStart,
         onConnectEnd: handleCardConnectEnd,
         onHover: handleCardHover,
@@ -719,6 +753,7 @@ const Canvas = () => {
     hoveredCardId, 
     relatedCardIds, 
     connectMode, 
+    handleCardConnection,
     handleCardConnectStart, 
     handleCardConnectEnd, 
     handleCardHover, 

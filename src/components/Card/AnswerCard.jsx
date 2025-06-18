@@ -37,6 +37,7 @@ const AnswerCard = ({
   isHovered,
   isRelated,
   connectMode,
+  onConnect,
   onConnectStart,
   onConnectEnd,
   onHover,
@@ -97,34 +98,47 @@ const AnswerCard = ({
     }
   }, [isExpanded, isEditingTitle]);
 
-  // Handle click on card
+  // Handle card click
   const handleCardClick = (e) => {
     e.stopPropagation();
     
+    console.log('AnswerCard: handleCardClick called', { 
+      cardId: card.id, 
+      connectMode, 
+      isLocked: isCardLockedByOthers(card.id),
+      expandedState: isExpanded 
+    });
+    
+    // Check if card is locked by another user
+    if (isCardLockedByOthers(card.id)) {
+      console.log('AnswerCard: Card locked by others, ignoring click');
+      return; // Cannot interact with card locked by others
+    }
+    
+    // If in connect mode, handle connection logic
     if (connectMode) {
-      const rect = cardRef.current.getBoundingClientRect();
-      const centerPos = {
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2
-      };
-      onConnectEnd(card.id, centerPos);
-    } else {
-      // Check if card is locked by another user
-      if (isCardLockedByOthers(card.id)) {
-        return; // Cannot select card locked by others
+      console.log('AnswerCard: In connect mode, calling onConnect for card:', card.id);
+      
+      if (onConnect) {
+        onConnect(card.id);
+      }
+      
+      return; // Don't expand card when connecting
+    }
+    
+    // Regular card interaction
+    if (!isExpanded) {
+      setIsExpanded(true);
+      
+      // Select the card when expanding
+      if (onSelect) {
+        onSelect(card.id, false);
       }
       
       // Lock the card when selected
-      if (!isCardLockedByMe(card.id) && !isSelected) {
+      if (collaborationSelectCard) {
         console.log('AnswerCard: Selecting card via collaboration:', card.id);
         collaborationSelectCard(card.id);
-      }
-      
-      // Handle selection - always use onSelect if provided, otherwise fall back to context
-      if (onSelect) {
-        onSelect(card.id, e.ctrlKey);
-      } else if (selectCard) {
-        selectCard(card.id, e.ctrlKey);
       }
     }
   };
