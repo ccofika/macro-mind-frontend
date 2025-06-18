@@ -52,6 +52,7 @@ export const CardProvider = ({ children }) => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [currentSpaceId, setCurrentSpaceId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [connectMode, setConnectMode] = useState(false);
   
   const { screenToCanvas } = useCanvas();
 
@@ -721,6 +722,8 @@ export const CardProvider = ({ children }) => {
     error,
     currentSpaceId,
     setCurrentSpace,
+    connectMode,
+    setConnectMode,
     createCard,
     createCategoryCard,
     createAnswerCard,

@@ -61,7 +61,9 @@ const Canvas = () => {
     deleteSelectedCards,
     getCardById,
     setCurrentSpace,
-    currentSpaceId
+    currentSpaceId,
+    connectMode,
+    setConnectMode
   } = useCards();
   
   const { 
@@ -81,7 +83,8 @@ const Canvas = () => {
   
   const { currentUser } = useContext(AuthContext);
   
-  const [connectMode, setConnectMode] = useState(false);
+  // Connect mode is now managed in CardContext
+  // const [connectMode, setConnectMode] = useState(false);
   const [connectSource, setConnectSource] = useState(null);
   const [connectTarget, setConnectTarget] = useState(null);
   const [hoveredCardId, setHoveredCardId] = useState(null);
@@ -740,8 +743,8 @@ const Canvas = () => {
           {renderedCards}
         </div>
         
-        {/* Action Bar */}
-        <ActionBar addCard={addCard} setConnectMode={setConnectMode} />
+        {/* Action Bar - Now integrated in NavBar */}
+        {/* <ActionBar addCard={addCard} setConnectMode={setConnectMode} /> */}
         
         {/* Connect Mode Indicator */}
         {connectMode && (

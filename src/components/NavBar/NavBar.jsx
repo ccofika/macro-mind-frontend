@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import './NavBar.css';
-import SearchBar from './SearchBar';
+import AdvancedSearchBar from './AdvancedSearchBar';
 import LinkEditor from './LinkEditor';
+import ActionBar from '../ActionBar/ActionBar';
 import AuthContext from '../../context/AuthContext';
 
 const NavBar = () => {
@@ -136,18 +137,53 @@ const NavBar = () => {
   };
 
   return (
-    <div 
-      className={`navbar ${isExpanded ? 'expanded' : 'collapsed'}`}
-      ref={navRef}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <div className="navbar-toggle" onClick={toggleNavBar}>
-        {isExpanded ? '◀' : '🔍'}
+    <>
+      {/* Main Top Bar with 3-Section Layout */}
+      <div className="navbar-top-container">
+        {/* GREEN SECTION - Collapsible Dropdown Menu */}
+        <div className="navbar-section-green">
+          <div 
+            className={`navbar-dropdown-toggle ${isExpanded ? 'expanded' : 'collapsed'}`}
+            onClick={toggleNavBar}
+            onMouseEnter={handleMouseEnter}
+          >
+            <svg 
+              className="dropdown-icon" 
+              width="20" 
+              height="20" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </div>
+        </div>
+
+        {/* BLUE SECTION - Main Search Bar */}
+        <div className="navbar-section-blue">
+          <AdvancedSearchBar />
+        </div>
+
+        {/* YELLOW SECTION - Existing ActionBar */}
+        <div className="navbar-section-yellow">
+          <ActionBar />
+        </div>
       </div>
-      
+
+      {/* Dropdown Menu Content (when expanded) */}
       {isExpanded && (
-        <div className="navbar-content">
+        <div 
+          className="navbar-dropdown-content"
+          ref={navRef}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
           {/* User info section */}
           <div className="user-info">
             <div className="user-avatar">
@@ -162,11 +198,23 @@ const NavBar = () => {
               <div className="user-email">{currentUser?.email}</div>
             </div>
             <button className="logout-button" onClick={handleLogout}>
+              <svg 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16,17 21,12 16,7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
               Logout
             </button>
           </div>
-          
-          <SearchBar />
           
           {showLinkEditor && (
             <LinkEditor 
@@ -193,9 +241,37 @@ const NavBar = () => {
                 onClick={() => setActiveCategory(activeCategory === 'stake' ? null : 'stake')}
               >
                 <div className="category-header">
-                  <span className="category-icon">📑</span>
+                  <svg 
+                    className="category-icon" 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14,2 14,8 20,8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10,9 9,9 8,9"></polyline>
+                  </svg>
                   <span className="category-label">Stake Pages</span>
-                  <span className="category-toggle">{activeCategory === 'stake' ? '▼' : '▶'}</span>
+                  <svg 
+                    className={`category-toggle ${activeCategory === 'stake' ? 'rotated' : ''}`}
+                    width="14" 
+                    height="14" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="6,9 12,15 18,9"></polyline>
+                  </svg>
                 </div>
                 
                 {activeCategory === 'stake' && (
@@ -211,9 +287,29 @@ const NavBar = () => {
                         >
                           <span className="item-bullet">•</span>
                           {item.name}
-                          <span className="item-action-icon">
-                            {item.action === 'copy' ? '📋' : '🔗'}
-                          </span>
+                          <svg 
+                            className="item-action-icon"
+                            width="14" 
+                            height="14" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          >
+                            {item.action === 'copy' ? (
+                              <>
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="m5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </>
+                            ) : (
+                              <>
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                              </>
+                            )}
+                          </svg>
                         </div>
                         <div className="nav-item-actions">
                           <button
@@ -223,7 +319,19 @@ const NavBar = () => {
                               startEditingLink('stake', item);
                             }}
                           >
-                            ✏️
+                            <svg 
+                              width="12" 
+                              height="12" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            >
+                              <path d="m18 2 4 4-6 6H4v-4l10-6z"></path>
+                              <path d="m14.5 5.5-3 3"></path>
+                            </svg>
                           </button>
                           <button
                             className="nav-item-delete"
@@ -232,7 +340,19 @@ const NavBar = () => {
                               deleteLink('stake', item.id);
                             }}
                           >
-                            🗑️
+                            <svg 
+                              width="12" 
+                              height="12" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="3,6 5,6 21,6"></polyline>
+                              <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
                           </button>
                         </div>
                       </div>
@@ -244,7 +364,20 @@ const NavBar = () => {
                         handleAddLink('stake');
                       }}
                     >
-                      + Add Link
+                      <svg 
+                        width="14" 
+                        height="14" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                      Add Link
                     </button>
                   </div>
                 )}
@@ -255,9 +388,34 @@ const NavBar = () => {
                 onClick={() => setActiveCategory(activeCategory === 'crypto' ? null : 'crypto')}
               >
                 <div className="category-header">
-                  <span className="category-icon">🔗</span>
+                  <svg 
+                    className="category-icon" 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                  </svg>
                   <span className="category-label">Crypto Explorers</span>
-                  <span className="category-toggle">{activeCategory === 'crypto' ? '▼' : '▶'}</span>
+                  <svg 
+                    className={`category-toggle ${activeCategory === 'crypto' ? 'rotated' : ''}`}
+                    width="14" 
+                    height="14" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="6,9 12,15 18,9"></polyline>
+                  </svg>
                 </div>
                 
                 {activeCategory === 'crypto' && (
@@ -273,9 +431,29 @@ const NavBar = () => {
                         >
                           <span className="item-bullet">•</span>
                           {item.name}
-                          <span className="item-action-icon">
-                            {item.action === 'copy' ? '📋' : '🔗'}
-                          </span>
+                          <svg 
+                            className="item-action-icon"
+                            width="14" 
+                            height="14" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          >
+                            {item.action === 'copy' ? (
+                              <>
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="m5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </>
+                            ) : (
+                              <>
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                              </>
+                            )}
+                          </svg>
                         </div>
                         <div className="nav-item-actions">
                           <button
@@ -285,7 +463,19 @@ const NavBar = () => {
                               startEditingLink('crypto', item);
                             }}
                           >
-                            ✏️
+                            <svg 
+                              width="12" 
+                              height="12" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            >
+                              <path d="m18 2 4 4-6 6H4v-4l10-6z"></path>
+                              <path d="m14.5 5.5-3 3"></path>
+                            </svg>
                           </button>
                           <button
                             className="nav-item-delete"
@@ -294,7 +484,19 @@ const NavBar = () => {
                               deleteLink('crypto', item.id);
                             }}
                           >
-                            🗑️
+                            <svg 
+                              width="12" 
+                              height="12" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="3,6 5,6 21,6"></polyline>
+                              <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
                           </button>
                         </div>
                       </div>
@@ -306,7 +508,20 @@ const NavBar = () => {
                         handleAddLink('crypto');
                       }}
                     >
-                      + Add Link
+                      <svg 
+                        width="14" 
+                        height="14" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                      Add Link
                     </button>
                   </div>
                 )}
@@ -317,9 +532,34 @@ const NavBar = () => {
                 onClick={() => setActiveCategory(activeCategory === 'documents' ? null : 'documents')}
               >
                 <div className="category-header">
-                  <span className="category-icon">📄</span>
+                  <svg 
+                    className="category-icon" 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                    <polyline points="13,2 13,9 20,9"></polyline>
+                  </svg>
                   <span className="category-label">Documents</span>
-                  <span className="category-toggle">{activeCategory === 'documents' ? '▼' : '▶'}</span>
+                  <svg 
+                    className={`category-toggle ${activeCategory === 'documents' ? 'rotated' : ''}`}
+                    width="14" 
+                    height="14" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="6,9 12,15 18,9"></polyline>
+                  </svg>
                 </div>
                 
                 {activeCategory === 'documents' && (
@@ -335,9 +575,29 @@ const NavBar = () => {
                         >
                           <span className="item-bullet">•</span>
                           {item.name}
-                          <span className="item-action-icon">
-                            {item.action === 'copy' ? '📋' : '🔗'}
-                          </span>
+                          <svg 
+                            className="item-action-icon"
+                            width="14" 
+                            height="14" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          >
+                            {item.action === 'copy' ? (
+                              <>
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="m5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </>
+                            ) : (
+                              <>
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                              </>
+                            )}
+                          </svg>
                         </div>
                         <div className="nav-item-actions">
                           <button
@@ -347,7 +607,19 @@ const NavBar = () => {
                               startEditingLink('documents', item);
                             }}
                           >
-                            ✏️
+                            <svg 
+                              width="12" 
+                              height="12" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            >
+                              <path d="m18 2 4 4-6 6H4v-4l10-6z"></path>
+                              <path d="m14.5 5.5-3 3"></path>
+                            </svg>
                           </button>
                           <button
                             className="nav-item-delete"
@@ -356,7 +628,19 @@ const NavBar = () => {
                               deleteLink('documents', item.id);
                             }}
                           >
-                            🗑️
+                            <svg 
+                              width="12" 
+                              height="12" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="3,6 5,6 21,6"></polyline>
+                              <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
                           </button>
                         </div>
                       </div>
@@ -368,7 +652,20 @@ const NavBar = () => {
                         handleAddLink('documents');
                       }}
                     >
-                      + Add Link
+                      <svg 
+                        width="14" 
+                        height="14" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                      Add Link
                     </button>
                   </div>
                 )}
@@ -379,9 +676,36 @@ const NavBar = () => {
                 onClick={() => setActiveCategory(activeCategory === 'excel' ? null : 'excel')}
               >
                 <div className="category-header">
-                  <span className="category-icon">📊</span>
+                  <svg 
+                    className="category-icon" 
+                    width="16" 
+                    height="16" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                  </svg>
                   <span className="category-label">Excel Tables</span>
-                  <span className="category-toggle">{activeCategory === 'excel' ? '▼' : '▶'}</span>
+                  <svg 
+                    className={`category-toggle ${activeCategory === 'excel' ? 'rotated' : ''}`}
+                    width="14" 
+                    height="14" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="6,9 12,15 18,9"></polyline>
+                  </svg>
                 </div>
                 
                 {activeCategory === 'excel' && (
@@ -397,9 +721,29 @@ const NavBar = () => {
                         >
                           <span className="item-bullet">•</span>
                           {item.name}
-                          <span className="item-action-icon">
-                            {item.action === 'copy' ? '📋' : '🔗'}
-                          </span>
+                          <svg 
+                            className="item-action-icon"
+                            width="14" 
+                            height="14" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          >
+                            {item.action === 'copy' ? (
+                              <>
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="m5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </>
+                            ) : (
+                              <>
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                              </>
+                            )}
+                          </svg>
                         </div>
                         <div className="nav-item-actions">
                           <button
@@ -409,7 +753,19 @@ const NavBar = () => {
                               startEditingLink('excel', item);
                             }}
                           >
-                            ✏️
+                            <svg 
+                              width="12" 
+                              height="12" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            >
+                              <path d="m18 2 4 4-6 6H4v-4l10-6z"></path>
+                              <path d="m14.5 5.5-3 3"></path>
+                            </svg>
                           </button>
                           <button
                             className="nav-item-delete"
@@ -418,7 +774,19 @@ const NavBar = () => {
                               deleteLink('excel', item.id);
                             }}
                           >
-                            🗑️
+                            <svg 
+                              width="12" 
+                              height="12" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="3,6 5,6 21,6"></polyline>
+                              <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
                           </button>
                         </div>
                       </div>
@@ -430,7 +798,20 @@ const NavBar = () => {
                         handleAddLink('excel');
                       }}
                     >
-                      + Add Link
+                      <svg 
+                        width="14" 
+                        height="14" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                      Add Link
                     </button>
                   </div>
                 )}
@@ -439,7 +820,7 @@ const NavBar = () => {
           )}
         </div>
       )}
-    </div>
+    </>
   );
 };
 
