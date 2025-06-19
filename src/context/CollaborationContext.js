@@ -624,6 +624,7 @@ export const CollaborationProvider = ({ children }) => {
     lockedCards,
     selectedCards,
     currentSpace,
+    currentUser, // Add currentUser here!
     spaces,
     isConnected,
     isLoading,

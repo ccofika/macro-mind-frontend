@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useCollaboration } from '../../context/CollaborationContext';
 import websocketService from '../../services/websocketService';
+import InvitationModal from './InvitationModal';
+import InvitationNotifications from './InvitationNotifications';
 import './CollaborationPanel.css';
 
 const CollaborationPanel = () => {
@@ -23,6 +25,8 @@ const CollaborationPanel = () => {
   const [isPublic, setIsPublic] = useState(false);
   const [editingSpace, setEditingSpace] = useState(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [invitationModalOpen, setInvitationModalOpen] = useState(false);
+  const [selectedSpaceForInvitation, setSelectedSpaceForInvitation] = useState(null);
   
   const panelRef = useRef(null);
   const triggerRef = useRef(null);
@@ -144,6 +148,16 @@ const CollaborationPanel = () => {
     }
   };
 
+  const handleInviteToSpace = (space) => {
+    setSelectedSpaceForInvitation(space);
+    setInvitationModalOpen(true);
+  };
+
+  const handleInvitationSent = (invitation) => {
+    console.log('Invitation sent:', invitation);
+    // Optionally show a success message or update UI
+  };
+
   if (!isConnected) {
     return (
       <>
@@ -241,6 +255,9 @@ const CollaborationPanel = () => {
         </div>
         
         <div className="panel-content">
+          {/* Invitation Notifications */}
+          <InvitationNotifications />
+          
           {/* Spaces Section */}
           <div className="spaces-section">
             <div className="section-header">
@@ -310,14 +327,17 @@ const CollaborationPanel = () => {
                         </div>
                       </div>
                     </div>
+
                     
-                    {space.createdBy === currentUser?.id && (
+                    {/* Show action buttons for spaces where user is owner OR if it's the current space */}
+                    {(space.ownerId === (currentUser?.id || currentUser?._id) || currentSpace?._id === space._id) && (
                       <div className="space-actions">
-                        {editingSpace === space._id ? (
-                          <form className="edit-space-form" onSubmit={(e) => handleUpdateSpace(e, space._id)}>
+                        {editingSpace?.id === space._id ? (
+                          <form className="edit-space-form" onSubmit={handleUpdateSpace}>
                             <input
                               type="text"
-                              defaultValue={space.name}
+                              value={editingSpace.name}
+                              onChange={(e) => setEditingSpace({...editingSpace, name: e.target.value})}
                               autoFocus
                             />
                             <div className="edit-actions">
@@ -337,28 +357,66 @@ const CollaborationPanel = () => {
                           </form>
                         ) : (
                           <>
-                            <button 
-                              className="action-button edit" 
-                              onClick={() => setEditingSpace(space._id)}
-                              title="Edit Space"
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                              </svg>
-                            </button>
-                            <button 
-                              className="action-button delete" 
-                              onClick={() => handleDeleteSpace(space._id)}
-                              title="Delete Space"
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="3 6 5 6 21 6"/>
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                <line x1="10" y1="11" x2="10" y2="17"/>
-                                <line x1="14" y1="11" x2="14" y2="17"/>
-                              </svg>
-                            </button>
+                            {/* Invite button - only for PUBLIC spaces and only for owners */}
+                            {space.isPublic && space.ownerId === (currentUser?.id || currentUser?._id) && (
+                              <button 
+                                className="action-button invite"
+                                onClick={() => handleInviteToSpace(space)}
+                                title="Invite users to public space"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                                  <circle cx="9" cy="7" r="4"/>
+                                  <line x1="19" y1="8" x2="19" y2="14"/>
+                                  <line x1="22" y1="11" x2="16" y2="11"/>
+                                </svg>
+                              </button>
+                            )}
+                            
+                            {/* Edit button - only for owners */}
+                            {space.ownerId === (currentUser?.id || currentUser?._id) && (
+                              <button 
+                                className="action-button edit" 
+                                onClick={() => startEditing(space)}
+                                title="Edit Space"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                  <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                </svg>
+                              </button>
+                            )}
+                            
+                            {/* Delete button - only for owners */}
+                            {space.ownerId === (currentUser?.id || currentUser?._id) && (
+                              <button 
+                                className="action-button delete" 
+                                onClick={() => handleDeleteSpace(space._id)}
+                                title="Delete Space"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6"/>
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                  <line x1="10" y1="11" x2="10" y2="17"/>
+                                  <line x1="14" y1="11" x2="14" y2="17"/>
+                                </svg>
+                              </button>
+                            )}
+                            
+                            {/* Leave button - only for current space members (not owners) */}
+                            {currentSpace?._id === space._id && space.ownerId !== (currentUser?.id || currentUser?._id) && (
+                              <button 
+                                className="action-button leave"
+                                onClick={handleLeaveSpace}
+                                title="Leave space"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                                  <polyline points="16,17 21,12 16,7"/>
+                                  <line x1="21" y1="12" x2="9" y2="12"/>
+                                </svg>
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
@@ -426,6 +484,17 @@ const CollaborationPanel = () => {
           </div>
         </div>
       </div>
+
+      {/* Invitation Modal */}
+      <InvitationModal
+        isOpen={invitationModalOpen}
+        onClose={() => {
+          setInvitationModalOpen(false);
+          setSelectedSpaceForInvitation(null);
+        }}
+        space={selectedSpaceForInvitation}
+        onInvitationSent={handleInvitationSent}
+      />
     </>
   );
 };

@@ -500,6 +500,12 @@
   transform: translateY(-1px);
 }
 
+.action-button.invite:hover {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10B981;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
 .action-button.edit:hover {
   background: var(--surface-bg-active);
   color: var(--text-accent);
