@@ -59,8 +59,13 @@ const AIChatMessages = () => {
   };
 
   // Render message content with formatting
-  const renderMessageContent = (content) => {
-    // Simple markdown-like formatting
+  const renderMessageContent = (content, messageMode) => {
+    // Check if this is a process mode response with structured format
+    if (messageMode === 'process' && content.includes('• **SITUATION**:')) {
+      return renderProcessModeContent(content);
+    }
+
+    // Simple markdown-like formatting for regular messages
     let formatted = content
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -68,6 +73,101 @@ const AIChatMessages = () => {
       .replace(/\n/g, '<br/>');
 
     return <div dangerouslySetInnerHTML={{ __html: formatted }} />;
+  };
+
+  // Render process mode content with special formatting
+  const renderProcessModeContent = (content) => {
+    const sections = content.split('• **').filter(section => section.trim());
+    
+    return (
+      <div className="process-mode-content">
+        {sections.map((section, index) => {
+          if (!section.includes('**:')) return null;
+          
+          const [titlePart, ...contentParts] = section.split('**:');
+          const title = titlePart.trim();
+          const sectionContent = contentParts.join('**:').trim();
+          
+          // Parse bullet points
+          const bullets = sectionContent
+            .split('\n')
+            .filter(line => line.trim().startsWith('-'))
+            .map(line => line.trim().substring(1).trim());
+          
+          const nonBulletContent = sectionContent
+            .split('\n')
+            .filter(line => !line.trim().startsWith('-') && line.trim())
+            .join(' ').trim();
+          
+          return (
+            <div key={index} className={`process-section process-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+              <div className="process-section-header">
+                <div className="process-section-icon">
+                  {getSectionIcon(title)}
+                </div>
+                <h4 className="process-section-title">{title}</h4>
+              </div>
+              <div className="process-section-content">
+                {nonBulletContent && (
+                  <p className="process-description">{nonBulletContent}</p>
+                )}
+                {bullets.length > 0 && (
+                  <ul className="process-bullets">
+                    {bullets.map((bullet, bulletIndex) => (
+                      <li key={bulletIndex} className="process-bullet">
+                        {bullet}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Get appropriate icon for each process section
+  const getSectionIcon = (sectionTitle) => {
+    switch (sectionTitle.toLowerCase()) {
+      case 'situation':
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 6v6l4 2"></path>
+          </svg>
+        );
+      case 'key facts':
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 11H5a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-5"></path>
+            <circle cx="9" cy="9" r="2"></circle>
+            <path d="M7 21v-4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4"></path>
+          </svg>
+        );
+      case 'actions':
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 11 12 14 22 4"></polyline>
+            <path d="m21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.11 0 2.18.2 3.17.57"></path>
+          </svg>
+        );
+      case 'decision points':
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 5H7a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2m5 0h2a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2m-5-4v4m0 0v4m0-4h4m-4 0H9"></path>
+          </svg>
+        );
+      default:
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 8v8"></path>
+            <path d="M8 12h8"></path>
+          </svg>
+        );
+    }
   };
 
   // Render sources
@@ -86,29 +186,119 @@ const AIChatMessages = () => {
           <span>Card Templates Used:</span>
           <span className="sources-count">({sources.length} cards)</span>
         </div>
-        <div className="sources-list">
+        <div className="sources-tabs">
           {sources.map((source, index) => (
-            <div key={index} className="source-item">
-              <div className="source-main">
-                <span className="source-card-title">"{source.cardTitle || source.card}"</span>
-                <span className="source-space-name">from "{source.spaceName || source.space}"</span>
-              </div>
-              <div className="source-details">
-                {(source.relevanceScore || source.relevance) && (
-                  <span className="source-relevance">
-                    {Math.round((source.relevanceScore || source.relevance * 100))}% match
-                  </span>
-                )}
-                {source.excerpt && (
-                  <div className="source-excerpt">
-                    <span className="excerpt-label">Content:</span>
-                    <span className="excerpt-text">{source.excerpt}</span>
-                  </div>
-                )}
-              </div>
+            <div key={index} className={`source-tab ${source.isConnectedCard ? 'connected-card' : ''} ${source.cardType === 'category' ? 'category-card' : ''}`}>
+              <span className="source-tab-title">"{source.cardTitle || source.card}"</span>
+              {source.cardType === 'category' && (
+                <span className="source-tab-badge">Category</span>
+              )}
+              {source.isConnectedCard && (
+                <span className="source-tab-badge connected">Connected</span>
+              )}
             </div>
           ))}
         </div>
+      </div>
+    );
+  };
+
+  // Render process flow information
+  const renderProcessFlow = (processMetadata, processFlow) => {
+    if (!processMetadata && !processFlow) return null;
+
+    return (
+      <div className="message-process-flow">
+        <div className="process-flow-header">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h2m5 0h2a2 2 0 002-2V7a2 2 0 00-2-2h-2m-5-4v4m0 0v4m0-4h4m-4 0H9"></path>
+          </svg>
+          <span>Process Analysis Results:</span>
+        </div>
+        
+        {processMetadata && (
+          <div className="process-metadata">
+            <div className="process-stats">
+              <div className="process-stat">
+                <span className="stat-value">{processMetadata.totalBranches}</span>
+                <span className="stat-label">Process Branches</span>
+              </div>
+              <div className="process-stat">
+                <span className="stat-value">{processMetadata.totalSteps}</span>
+                <span className="stat-label">Total Steps</span>
+              </div>
+              <div className="process-stat">
+                <span className="stat-value">{processMetadata.usedCards?.length || 0}</span>
+                <span className="stat-label">Cards Analyzed</span>
+              </div>
+              <div className="process-stat">
+                <span className={`stat-value complexity-${processMetadata.complexity}`}>
+                  {processMetadata.complexity?.toUpperCase()}
+                </span>
+                <span className="stat-label">Complexity</span>
+              </div>
+            </div>
+            
+            {processMetadata.alternativePaths > 0 && (
+              <div className="process-alternatives">
+                <span className="alternatives-icon">🔀</span>
+                <span>{processMetadata.alternativePaths} alternative path{processMetadata.alternativePaths !== 1 ? 's' : ''} identified</span>
+              </div>
+            )}
+            
+            {processMetadata.usedCards?.length > 0 && (
+              <div className="process-used-cards">
+                <div className="used-cards-header">Cards Used in Analysis:</div>
+                <div className="used-cards-list">
+                  {processMetadata.usedCards.slice(0, 10).map((cardId, index) => (
+                    <span key={cardId} className="used-card-id">
+                      Card-{index + 1}
+                    </span>
+                  ))}
+                  {processMetadata.usedCards.length > 10 && (
+                    <span className="used-cards-more">
+                      +{processMetadata.usedCards.length - 10} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {processFlow?.branches?.length > 0 && (
+          <div className="process-branches">
+            <div className="branches-header">Process Flow Branches:</div>
+            {processFlow.branches.slice(0, 3).map((branch, index) => (
+              <div key={index} className="process-branch">
+                <div className="branch-header">
+                  <span className="branch-icon">📋</span>
+                  <span className="branch-title">
+                    {branch.rootCard?.title || `Branch ${index + 1}`}
+                  </span>
+                  <span className="branch-type">
+                    ({branch.rootCard?.type || 'process'})
+                  </span>
+                </div>
+                {branch.steps?.length > 0 && (
+                  <div className="branch-steps-summary">
+                    {branch.steps.length} step{branch.steps.length !== 1 ? 's' : ''} in workflow
+                    {branch.alternatives?.length > 0 && (
+                      <span className="branch-alternatives">
+                        • {branch.alternatives.length} alternative{branch.alternatives.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+            {processFlow.branches.length > 3 && (
+              <div className="process-branches-more">
+                +{processFlow.branches.length - 3} more branches discovered
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -248,7 +438,7 @@ const AIChatMessages = () => {
                 ) : (
                   <>
                     <div className="message-content">
-                      {renderMessageContent(message.content)}
+                      {renderMessageContent(message.content, message.mode)}
                     </div>
                     
                     {message.images && message.images.length > 0 && (
@@ -260,6 +450,9 @@ const AIChatMessages = () => {
                     )}
                     
                     {message.sources && renderSources(message.sources)}
+                    
+                    {(message.processMetadata || message.processFlow) && 
+                      renderProcessFlow(message.processMetadata, message.processFlow)}
                     
                     {message.confidence && (
                       <div className="message-confidence">
