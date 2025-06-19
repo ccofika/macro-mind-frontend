@@ -52,46 +52,48 @@ const SearchDemo = () => {
       <div className="demo-features">
         <div className="feature-grid">
           <div className="feature-card">
-            <div className="feature-icon">📍</div>
-            <h3>Local Canvas Search</h3>
-            <p>Search within the current workspace with real-time results and fuzzy matching</p>
+            <div className="feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+            </div>
+            <h3>Smart Ranking</h3>
+            <p>Priority ranking (Category → Title → Content)</p>
             <ul>
-              <li>FlexSearch-powered indexing</li>
-              <li>Priority ranking (Category → Title → Content)</li>
-              <li>Debounced search-as-you-type</li>
+              <li>Fuzzy matching for typos</li>
+              <li>Real-time results as you type</li>
             </ul>
           </div>
           
           <div className="feature-card">
-            <div className="feature-icon">🌐</div>
-            <h3>Global Space Search</h3>
-            <p>Search across all accessible spaces with cross-space navigation</p>
+            <div className="feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                <line x1="9" y1="9" x2="9.01" y2="9"/>
+                <line x1="15" y1="9" x2="15.01" y2="9"/>
+              </svg>
+            </div>
+            <h3>Global Search</h3>
+            <p>Search across all your cards</p>
             <ul>
-              <li>Backend API with relevance scoring</li>
-              <li>Permission-aware search results</li>
-              <li>Automatic space switching</li>
+              <li>Filter by categories and types</li>
+              <li>Jump to any card instantly</li>
             </ul>
           </div>
           
           <div className="feature-card">
-            <div className="feature-icon">✨</div>
-            <h3>Modern UI/UX</h3>
-            <p>Glassmorphism design with smooth interactions</p>
+            <div className="feature-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+            </div>
+            <h3>Lightning Fast</h3>
+            <p>Instant search results</p>
             <ul>
-              <li>Backdrop blur effects</li>
-              <li>Keyboard navigation support</li>
-              <li>Highlighted search matches</li>
-            </ul>
-          </div>
-          
-          <div className="feature-card">
-            <div className="feature-icon">⚡</div>
-            <h3>Performance Optimized</h3>
-            <p>Efficient search with caching and optimization</p>
-            <ul>
-              <li>300ms debouncing</li>
-              <li>Result caching</li>
-              <li>Lazy loading</li>
+              <li>Optimized for large datasets</li>
+              <li>Smooth animations and transitions</li>
             </ul>
           </div>
         </div>
@@ -121,7 +123,14 @@ const SearchDemo = () => {
       </div>
       
       <div className="demo-keyboard-shortcuts">
-        <h3>⌨️ Keyboard Shortcuts</h3>
+        <h3>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          Keyboard Shortcuts
+        </h3>
         <div className="shortcuts-grid">
           <div className="shortcut">
             <kbd>↑</kbd><kbd>↓</kbd>

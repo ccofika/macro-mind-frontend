@@ -118,15 +118,48 @@ const OffscreenPointers = () => {
     navigateTo(card.position, Math.min(zoom * 1.2, 1.5));
   }, [navigateTo, zoom]);
   
-  // Calculate the arrow direction based on the angle
-  const getArrowDirection = (angle) => {
-    // Convert angle to 8 directions (N, NE, E, SE, S, SW, W, NW)
-    const normalizedAngle = ((angle + 180) % 360 + 360) % 360; // Normalize to 0-360
-    const directions = ['→', '↗', '↑', '↖', '←', '↙', '↓', '↘'];
-    const index = Math.round(normalizedAngle / 45) % 8;
-    return directions[index];
+  const getArrowIcon = (direction) => {
+    const svgProps = {
+      width: "12",
+      height: "12",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: "2",
+      strokeLinecap: "round",
+      strokeLinejoin: "round"
+    };
+
+    switch (direction) {
+      case 0: // →
+        return <svg {...svgProps}><polyline points="9 18 15 12 9 6"/></svg>;
+      case 1: // ↗
+        return <svg {...svgProps}><line x1="7" y1="17" x2="17" y2="7"/><polyline points="17 7 17 13"/><polyline points="11 7 17 7"/></svg>;
+      case 2: // ↑
+        return <svg {...svgProps}><polyline points="18 15 12 9 6 15"/></svg>;
+      case 3: // ↖
+        return <svg {...svgProps}><line x1="17" y1="17" x2="7" y2="7"/><polyline points="7 7 7 13"/><polyline points="7 7 13 7"/></svg>;
+      case 4: // ←
+        return <svg {...svgProps}><polyline points="15 18 9 12 15 6"/></svg>;
+      case 5: // ↙
+        return <svg {...svgProps}><line x1="17" y1="7" x2="7" y2="17"/><polyline points="7 17 7 11"/><polyline points="13 17 7 17"/></svg>;
+      case 6: // ↓
+        return <svg {...svgProps}><polyline points="6 9 12 15 18 9"/></svg>;
+      case 7: // ↘
+        return <svg {...svgProps}><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 17 17 11"/><polyline points="11 17 17 17"/></svg>;
+      default:
+        return <svg {...svgProps}><polyline points="9 18 15 12 9 6"/></svg>;
+    }
   };
-  
+
+  // Calculate direction index (0-7) based on angle
+  const getDirectionIndex = (angle) => {
+    // Convert angle to 0-360 range
+    let normalizedAngle = ((angle + 180) % 360 + 360) % 360;
+    // Map to 8 directions (each covering 45 degrees)
+    return Math.round(normalizedAngle / 45) % 8;
+  };
+
   return (
     <div className="offscreen-pointers-container">
       {offscreenCards.map(card => (
@@ -136,19 +169,13 @@ const OffscreenPointers = () => {
           style={{
             left: `${card.screenPosition.x}px`,
             top: `${card.screenPosition.y}px`,
-            transform: `translate(-50%, -50%) rotate(${card.angle}deg)`,
+            transform: `translate(-50%, -50%)`,
             opacity: card.opacity,
-            '--angle': `${card.angle}deg`
           }}
           onClick={() => handlePointerClick(card)}
+          title={`Go to: ${card.title || 'Untitled Card'}`}
         >
-          <div 
-            className="pointer-content"
-            style={{ transform: `rotate(${-card.angle}deg)` }}
-          >
-            <span className="pointer-title">{card.title}</span>
-            <span className="pointer-arrow">{getArrowDirection(card.angle)}</span>
-          </div>
+          {getArrowIcon(getDirectionIndex(card.angle))}
         </div>
       ))}
     </div>

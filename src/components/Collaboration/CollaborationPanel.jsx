@@ -153,8 +153,18 @@ const CollaborationPanel = () => {
           ref={triggerRef}
           onMouseEnter={handleMouseEnter}
         >
-          <div className="trigger-icon">→</div>
-          <div className="trigger-status offline">⚠️</div>
+          <div className="trigger-icon">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </div>
+          <div className="trigger-status offline">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
         </div>
 
         {/* Panel */}
@@ -174,7 +184,13 @@ const CollaborationPanel = () => {
           
           <div className="panel-content">
             <div className="connection-error">
-              <span className="error-icon">⚠️</span>
+              <span className="error-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </span>
               <p>Not connected to collaboration server</p>
               <button 
                 className={`reconnect-button ${isReconnecting ? 'reconnecting' : ''}`}
@@ -198,7 +214,11 @@ const CollaborationPanel = () => {
         ref={triggerRef}
         onMouseEnter={handleMouseEnter}
       >
-        <div className="trigger-icon">→</div>
+        <div className="trigger-icon">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </div>
         <div className="trigger-status">
           {currentSpace && <div className="current-space-indicator">{currentSpace.name.substring(0, 1)}</div>}
           {activeUsers.length > 0 && <div className="users-count">{activeUsers.length}</div>}
@@ -226,10 +246,14 @@ const CollaborationPanel = () => {
             <div className="section-header">
               <span className="section-title">Spaces</span>
               <button 
-                className="create-space-button"
+                className="create-space-button" 
                 onClick={() => setIsCreating(!isCreating)}
+                title="Create New Space"
               >
-                {isCreating ? '✕' : '+'}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
               </button>
             </div>
 
@@ -237,7 +261,7 @@ const CollaborationPanel = () => {
               <form className="create-space-form" onSubmit={handleCreateSpace}>
                 <input
                   type="text"
-                  placeholder="Space name"
+                  placeholder="Space name..."
                   value={newSpaceName}
                   onChange={(e) => setNewSpaceName(e.target.value)}
                   autoFocus
@@ -247,7 +271,7 @@ const CollaborationPanel = () => {
                     <input
                       type="checkbox"
                       checked={isPublic}
-                      onChange={() => setIsPublic(!isPublic)}
+                      onChange={(e) => setIsPublic(e.target.checked)}
                     />
                     <span className="checkmark"></span>
                     Public space
@@ -257,114 +281,105 @@ const CollaborationPanel = () => {
               </form>
             )}
 
-            <div className="spaces-list">
-              {spaces.length === 0 ? (
-                <div className="empty-state">
-                  <span className="empty-icon">🌐</span>
-                  <p>No spaces available</p>
-                  <small>Create a space to collaborate</small>
-                </div>
-              ) : (
-                spaces.map(space => {
-                  const spaceId = space.id || space._id;
-                  return (
-                    <div 
-                      key={spaceId} 
-                      className={`space-item ${currentSpace?.id === spaceId ? 'active' : ''}`}
-                    >
-                      {editingSpace && editingSpace.id === spaceId ? (
-                        <form className="edit-space-form" onSubmit={handleUpdateSpace}>
-                          <input
-                            type="text"
-                            value={editingSpace.name}
-                            onChange={(e) => setEditingSpace({...editingSpace, name: e.target.value})}
-                            autoFocus
-                          />
-                          <div className="space-options">
-                            <label className="checkbox-label">
-                              <input
-                                type="checkbox"
-                                checked={editingSpace.isPublic}
-                                onChange={() => setEditingSpace({
-                                  ...editingSpace, 
-                                  isPublic: !editingSpace.isPublic
-                                })}
-                              />
-                              <span className="checkmark"></span>
-                              Public
-                            </label>
-                          </div>
-                          <div className="edit-actions">
-                            <button type="submit" className="save-button">✓</button>
-                            <button 
-                              type="button" 
-                              className="cancel-button"
-                              onClick={() => setEditingSpace(null)}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </form>
-                      ) : (
-                        <>
-                          <div className="space-info" onClick={() => handleJoinSpace(spaceId)}>
-                            <div className="space-main">
-                              <span className="space-icon">🌐</span>
-                              <div className="space-details">
-                                <span className="space-name">{space.name}</span>
-                                <div className="space-meta">
-                                  <span className={`visibility-badge ${space.isPublic ? 'public' : 'private'}`}>
-                                    {space.isPublic ? 'Public' : 'Private'}
-                                  </span>
-                                  {currentSpace?.id === spaceId && (
-                                    <span className="current-badge">Current</span>
-                                  )}
-                                </div>
-                              </div>
+            {spaces.length > 0 ? (
+              <div className="spaces-list">
+                {spaces.map(space => (
+                  <div key={space._id} className={`space-item ${currentSpace?._id === space._id ? 'active' : ''}`}>
+                    <div className="space-info" onClick={() => handleJoinSpace(space._id)}>
+                      <div className="space-main">
+                        <span className="space-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                            <line x1="9" y1="9" x2="9.01" y2="9"/>
+                            <line x1="15" y1="9" x2="15.01" y2="9"/>
+                          </svg>
+                        </span>
+                        <div className="space-details">
+                          <div className="space-name-and-meta">
+                            <span className="space-name">{space.name}</span>
+                            <div className="space-meta">
+                              <span className={`visibility-badge ${space.isPublic ? 'public' : 'private'}`}>
+                                {space.isPublic ? 'Public' : 'Private'}
+                              </span>
+                              {currentSpace?._id === space._id && (
+                                <span className="current-badge">Current</span>
+                              )}
                             </div>
                           </div>
-                          <div className="space-actions">
-                            <button 
-                              className="action-button edit"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                startEditing(space);
-                              }}
-                              title="Edit space"
-                            >
-                              ✎
-                            </button>
-                            {currentSpace?.id === spaceId ? (
-                              <button 
-                                className="action-button leave"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleLeaveSpace();
-                                }}
-                                title="Leave space"
-                              >
-                                ←
-                              </button>
-                            ) : (
-                              <button 
-                                className="action-button delete"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteSpace(spaceId);
-                                }}
-                                title="Delete space"
-                              >
-                                🗑
-                              </button>
-                            )}
-                          </div>
-                        </>
-                      )}
+                        </div>
+                      </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
+                    
+                    {space.createdBy === currentUser?.id && (
+                      <div className="space-actions">
+                        {editingSpace === space._id ? (
+                          <form className="edit-space-form" onSubmit={(e) => handleUpdateSpace(e, space._id)}>
+                            <input
+                              type="text"
+                              defaultValue={space.name}
+                              autoFocus
+                            />
+                            <div className="edit-actions">
+                              <button type="submit" className="save-button">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                              </button>
+                              <button 
+                                type="button" 
+                                className="cancel-button"
+                                onClick={() => setEditingSpace(null)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <button 
+                              className="action-button edit" 
+                              onClick={() => setEditingSpace(space._id)}
+                              title="Edit Space"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                              </svg>
+                            </button>
+                            <button 
+                              className="action-button delete" 
+                              onClick={() => handleDeleteSpace(space._id)}
+                              title="Delete Space"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                <line x1="10" y1="11" x2="10" y2="17"/>
+                                <line x1="14" y1="11" x2="14" y2="17"/>
+                              </svg>
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <span className="empty-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                    <line x1="9" y1="9" x2="9.01" y2="9"/>
+                    <line x1="15" y1="9" x2="15.01" y2="9"/>
+                  </svg>
+                </span>
+                <p>No spaces available</p>
+                <small>Create your first space to start collaborating</small>
+              </div>
+            )}
           </div>
 
           {/* Active Users Section */}

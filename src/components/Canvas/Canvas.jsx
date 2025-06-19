@@ -726,7 +726,15 @@ const Canvas = () => {
         {!currentSpaceId && showCollaborationUI && (
           <div className="no-space-message">
             <div className="no-space-content">
-              <h3>🌐 No Space Selected</h3>
+              <h3>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                  <line x1="9" y1="9" x2="9.01" y2="9"/>
+                  <line x1="15" y1="9" x2="15.01" y2="9"/>
+                </svg>
+                No Space Selected
+              </h3>
               <p>Select a space from the sidebar or create a new one to start collaborating.</p>
               <p>Cards are organized by spaces to keep your work separated.</p>
             </div>
@@ -749,7 +757,12 @@ const Canvas = () => {
         {/* Connect Mode Indicator */}
         {connectMode && (
           <div className="connect-mode-indicator">
-            <span className="connect-icon">🔗</span>
+            <span className="connect-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+            </span>
             <span>Connect Mode</span>
             <button className="connect-exit-button" onClick={() => setConnectMode(false)}>Exit</button>
           </div>
@@ -757,37 +770,76 @@ const Canvas = () => {
         
         {/* Zoom controls */}
         <div className="zoom-controls">
-          <button className="zoom-button" onClick={handleZoomIn} title="Zoom In">+</button>
+          <button className="zoom-button" onClick={handleZoomIn} title="Zoom In">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+              <line x1="11" y1="8" x2="11" y2="14"/>
+              <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+          </button>
           <div className="zoom-level">{Math.round(zoom * 100)}%</div>
-          <button className="zoom-button" onClick={handleZoomOut} title="Zoom Out">−</button>
-          <button className="zoom-button" onClick={handleResetZoom} title="Reset Zoom">⟲</button>
+          <button className="zoom-button" onClick={handleZoomOut} title="Zoom Out">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+              <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+          </button>
+          <button className="zoom-button" onClick={handleResetZoom} title="Reset Zoom">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+            </svg>
+          </button>
           <button 
             className={`zoom-button ${isHighPerformanceMode ? 'active' : ''}`} 
             onClick={() => setIsHighPerformanceMode(prev => !prev)} 
             title="Toggle High Performance Mode"
           >
-            {isHighPerformanceMode ? '⚡' : '⚙️'}
+            {isHighPerformanceMode ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m15.5-6.5l-4.24 4.24M7.76 16.24l-4.24 4.24m12.73-12.73l-4.24 4.24M7.76 7.76L3.52 3.52"/>
+              </svg>
+            )}
           </button>
           <button 
             className={`zoom-button ${showMiniMap ? 'active' : ''}`} 
             onClick={() => setShowMiniMap(prev => !prev)} 
             title="Toggle Mini-Map"
           >
-            🗺️
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+              <line x1="8" y1="2" x2="8" y2="18"/>
+              <line x1="16" y1="6" x2="16" y2="22"/>
+            </svg>
           </button>
           <button 
             className={`zoom-button ${showOffscreenPointers ? 'active' : ''}`} 
             onClick={() => setShowOffscreenPointers(prev => !prev)} 
             title="Toggle Offscreen Pointers"
           >
-            📍
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
           </button>
           <button 
             className={`zoom-button ${showCollaborationUI ? 'active' : ''}`} 
             onClick={() => setShowCollaborationUI(prev => !prev)} 
             title="Toggle Collaboration UI"
           >
-            👥
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
           </button>
         </div>
         

@@ -7,46 +7,51 @@ const ActiveUsers = () => {
   
   if (!activeUsers || activeUsers.length === 0) {
     return (
-      <div className="active-users-container">
-        <div className="active-users-header">
-          <span className="active-users-icon">👥</span>
-          <span className="active-users-title">Active Users</span>
-        </div>
-        <div className="active-users-list">
-          <div className="no-active-users">No other users active</div>
-        </div>
+      <div className="active-users">
+        <span className="active-users-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </span>
+        <span className="users-count">0 users</span>
       </div>
     );
   }
   
   return (
-    <div className="active-users-container">
-      <div className="active-users-header">
-        <span className="active-users-icon">👥</span>
-        <span className="active-users-title">Active Users</span>
-        <span className="active-users-count">{activeUsers.length}</span>
-      </div>
-      
-      <div className="active-users-list">
+    <div className="active-users">
+      <span className="active-users-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </span>
+      <span className="users-count">{activeUsers.length} user{activeUsers.length !== 1 ? 's' : ''}</span>
+      <div className="users-list">
         {activeUsers
           .filter(user => user && user.id) // Filter out invalid users
           .map(user => (
           <div 
             key={user.id} 
-            className={`active-user ${user.id === currentUser?.id ? 'current-user' : ''}`}
+            className={`user-item ${user.id === currentUser?.id ? 'current-user' : ''}`}
           >
             <div 
               className="user-avatar" 
               style={{ 
-                backgroundColor: user.color || '#666666',
+                backgroundColor: user.color || '#3B82F6',
                 border: user.id === currentUser?.id ? '2px solid white' : 'none'
               }}
             >
-              {(user.username || user.name || 'U').substring(0, 1).toUpperCase()}
+              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
             <div className="user-info">
               <div className="user-name">
-                {user.username || user.name || 'Unknown User'}
+                {user.name || 'Anonymous'}
                 {user.id === currentUser?.id && <span className="you-label">(You)</span>}
               </div>
               <div className="user-status">
