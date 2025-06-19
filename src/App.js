@@ -9,6 +9,7 @@ import NavBar from './components/NavBar/NavBar';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
+import AIChatWindow from './components/AIChat/AIChatWindow';
 
 // Context Providers
 import { AuthProvider } from './context/AuthContext';
@@ -16,6 +17,7 @@ import { CanvasProvider } from './context/CanvasContext';
 import { CardProvider } from './context/CardContext';
 import { AIProvider } from './context/AIContext';
 import { CollaborationProvider } from './context/CollaborationContext';
+import { AIChatProvider } from './context/AIChatContext';
 
 function App() {
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
@@ -39,10 +41,13 @@ function App() {
                       <CardProvider>
                         <AIProvider>
                           <CollaborationProvider>
-                            <>
-                              <NavBar />
-                              <Canvas />
-                            </>
+                            <AIChatProvider>
+                              <>
+                                <NavBar />
+                                <Canvas />
+                                <AIChatWindow />
+                              </>
+                            </AIChatProvider>
                           </CollaborationProvider>
                         </AIProvider>
                       </CardProvider>

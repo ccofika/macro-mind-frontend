@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useCards } from '../../context/CardContext';
+import { useAIChat } from '../../context/AIChatContext';
 import './ActionBar.css';
 
 const ActionBar = () => {
   const [showTooltip, setShowTooltip] = useState('');
   const { createCategoryCard, createAnswerCard, connectMode, setConnectMode } = useCards();
+  const { isOpen, openChat } = useAIChat();
 
   const handleCreateCategory = () => {
     const centerX = window.innerWidth / 2;
@@ -23,6 +25,10 @@ const ActionBar = () => {
     if (setConnectMode) {
       setConnectMode(prev => !prev);
     }
+  };
+
+  const handleOpenAIChat = () => {
+    openChat();
   };
 
   return (
@@ -102,6 +108,31 @@ const ActionBar = () => {
           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
         </svg>
         {showTooltip === 'connect' && <div className="tooltip">Connect Cards</div>}
+      </button>
+
+      <button 
+        className={`action-button ai-chat-button ${isOpen ? 'active' : ''}`}
+        onClick={handleOpenAIChat}
+        onMouseEnter={() => setShowTooltip('ai-chat')}
+        onMouseLeave={() => setShowTooltip('')}
+        title="AI Assistant"
+      >
+        <svg 
+          className="action-icon" 
+          width="18" 
+          height="18" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+        >
+          <path d="M12 8V4l8 8-8 8v-4H4l8-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"></path>
+        </svg>
+        {showTooltip === 'ai-chat' && <div className="tooltip">AI Assistant</div>}
       </button>
     </div>
   );
