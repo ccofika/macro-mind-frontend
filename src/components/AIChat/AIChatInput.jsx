@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAIChat } from '../../context/AIChatContext';
 import './AIChatInput.css';
 
@@ -15,6 +15,7 @@ const AIChatInput = () => {
   } = useAIChat();
 
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isPasteActive, setIsPasteActive] = useState(false);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -85,6 +86,96 @@ const AIChatInput = () => {
     }
   };
 
+  // Handle clipboard paste
+  const handlePaste = useCallback(async (e) => {
+    console.log('📋 Paste event detected');
+    
+    const clipboardItems = e.clipboardData?.items;
+    if (!clipboardItems) return;
+
+    const imageItems = Array.from(clipboardItems).filter(item => 
+      item.type.startsWith('image/')
+    );
+
+    if (imageItems.length === 0) {
+      console.log('📋 No images found in clipboard');
+      return;
+    }
+
+    console.log(`📋 Found ${imageItems.length} image(s) in clipboard`);
+    setIsPasteActive(true);
+
+    // Process each image item
+    for (const item of imageItems) {
+      const file = item.getAsFile();
+      if (file) {
+        console.log(`📋 Processing pasted image: ${file.type}, size: ${file.size}`);
+        
+        // Create a more descriptive name for pasted images
+        const timestamp = new Date().toLocaleTimeString('en-US', { 
+          hour12: false, 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          second: '2-digit' 
+        });
+        const fileName = `Screenshot_${timestamp}.${file.type.split('/')[1]}`;
+        
+        // Create new file object with better name
+        const renamedFile = new File([file], fileName, { type: file.type });
+        
+        // Check file size
+        if (renamedFile.size > 10 * 1024 * 1024) {
+          console.warn('📋 Pasted image too large:', renamedFile.size);
+          continue;
+        }
+
+        // Process the file
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setAttachedImages(prev => [...prev, {
+            id: Date.now() + Math.random(),
+            file: renamedFile,
+            url: e.target.result,
+            name: fileName,
+            size: renamedFile.size,
+            isPasted: true // Flag to indicate this was pasted
+          }]);
+          console.log(`📋 Successfully added pasted image: ${fileName}`);
+        };
+        reader.readAsDataURL(renamedFile);
+      }
+    }
+
+    // Reset paste active state after a short delay
+    setTimeout(() => setIsPasteActive(false), 500);
+  }, [setAttachedImages]);
+
+  // Set up paste event listener
+  useEffect(() => {
+    const handleGlobalPaste = (e) => {
+      // Only handle paste if the chat input area is focused or if no other input is focused
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.contentEditable === 'true'
+      );
+
+      // If an input is focused but it's our textarea, handle the paste
+      // If no input is focused, also handle the paste (global paste)
+      if (!isInputFocused || activeElement === textareaRef.current) {
+        handlePaste(e);
+      }
+    };
+
+    // Add event listener to document for global paste handling
+    document.addEventListener('paste', handleGlobalPaste);
+
+    return () => {
+      document.removeEventListener('paste', handleGlobalPaste);
+    };
+  }, [handlePaste]);
+
   // Handle drag and drop
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -119,7 +210,46 @@ const AIChatInput = () => {
   };
 
   return (
-    <div className={`ai-chat-input ${isDragOver ? 'drag-over' : ''}`}>
+    <div className={`ai-chat-input ${isDragOver ? 'drag-over' : ''} ${isPasteActive ? 'paste-active' : ''}`}>
+      {/* Attached Images Row - Moved outside and above input container */}
+      {attachedImages.length > 0 && (
+        <div className="attached-images-row">
+          {attachedImages.map((image) => (
+            <div key={image.id} className={`attached-image-thumbnail ${image.isPasted ? 'pasted-image' : ''}`}>
+              <div className="thumbnail-container">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+                {image.isPasted && (
+                  <div className="paste-indicator" title="Pasted from clipboard">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                      <path d="m16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                    </svg>
+                  </div>
+                )}
+              </div>
+              <div className="thumbnail-info">
+                <span className="thumbnail-name" title={image.name}>{image.name}</span>
+                <span className="thumbnail-size">{formatFileSize(image.size)}</span>
+              </div>
+              <button
+                className="remove-thumbnail-button"
+                onClick={() => removeImage(image.id)}
+                title="Remove image"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Input Container */}
       <div className="input-container">
         {/* Drag and Drop Overlay */}
@@ -136,30 +266,19 @@ const AIChatInput = () => {
           </div>
         )}
 
-        {/* Attached Images Row */}
-        {attachedImages.length > 0 && (
-          <div className="attached-images-row">
-            {attachedImages.map((image) => (
-              <div key={image.id} className="attached-image-thumbnail">
-                <div className="thumbnail-container">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                    <polyline points="21 15 16 10 5 21"></polyline>
-                  </svg>
-                </div>
-                <button
-                  className="remove-thumbnail-button"
-                  onClick={() => removeImage(image.id)}
-                  title="Remove image"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </button>
-              </div>
-            ))}
+        {/* Paste Active Overlay */}
+        {isPasteActive && (
+          <div className="paste-overlay">
+            <div className="paste-content">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                <path d="m16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              <p>Processing pasted image...</p>
+            </div>
           </div>
         )}
 
@@ -168,7 +287,7 @@ const AIChatInput = () => {
           <textarea
             ref={textareaRef}
             className="text-input"
-            placeholder="Ask me anything..."
+            placeholder="Ask me anything... (Ctrl+V to paste images)"
             value={draft}
             onChange={handleInputChange}
             onKeyPress={handleKeyPress}

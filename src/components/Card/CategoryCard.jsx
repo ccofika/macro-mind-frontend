@@ -92,7 +92,7 @@ const CategoryCard = ({
     }
   }, [card.position, updatePosition, position]);
 
-  // Handle card clicks
+  // Handle card clicks - now only for connect mode and selection
   const handleCardClick = (e) => {
     e.stopPropagation();
     
@@ -120,20 +120,9 @@ const CategoryCard = ({
       return; // Don't expand card when connecting
     }
     
-    // Regular card interaction
-    if (!isExpanded) {
-      setIsExpanded(true);
-      
-      // Select the card when expanding
-      if (onSelect) {
-        onSelect(card.id, false);
-      }
-      
-      // Lock the card when selected
-      if (collaborationSelectCard) {
-        console.log('CategoryCard: Selecting card via collaboration:', card.id);
-        collaborationSelectCard(card.id);
-      }
+    // Only select card on single click, don't expand
+    if (!isExpanded && onSelect) {
+      onSelect(card.id, false);
     }
   };
   
@@ -151,7 +140,21 @@ const CategoryCard = ({
       return; // Cannot expand card locked by others
     }
     
-    setIsExpanded(!isExpanded);
+    // Toggle expansion state
+    const newExpandedState = !isExpanded;
+    setIsExpanded(newExpandedState);
+    
+    // Select and lock the card when expanding
+    if (newExpandedState) {
+      if (onSelect) {
+        onSelect(card.id, false);
+      }
+      
+      if (collaborationSelectCard) {
+        console.log('CategoryCard: Selecting card via collaboration:', card.id);
+        collaborationSelectCard(card.id);
+      }
+    }
   };
   
   // Handle title change

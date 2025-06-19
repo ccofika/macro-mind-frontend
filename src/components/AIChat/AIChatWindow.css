@@ -162,15 +162,13 @@
 /* Bubble Buttons Container - Compact size */
 .ai-chat-bubbles-container {
   flex-shrink: 0;
-  max-height: 10vh;
   padding: 0;
   background: transparent;
 }
 
-/* Input Container - Compact size, 20% max of chat area */
+/* Input Container - Compact size */
 .ai-chat-input-container {
   flex-shrink: 0;
-  max-height: 10vh;
   padding: 0;
   background: transparent;
 }

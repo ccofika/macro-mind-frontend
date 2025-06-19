@@ -25,14 +25,23 @@ export class AIChatService {
    * Search through user's cards and spaces
    */
   async searchCards({ query, cards, spaces, connections, mode, context }) {
-    const cacheKey = `search_${query}_${mode}_${context.currentSpace}`;
+    // Improved cache key with more specificity
+    const cardsHash = cards?.length ? `_${cards.length}` : '_0';
+    const spaceContext = context.currentSpace || 'global';
+    const cacheKey = `search_${query.toLowerCase().trim()}_${mode}_${spaceContext}${cardsHash}`;
+    
+    console.log('🗄️ Cache key:', cacheKey);
     
     // Check cache first
     if (this.searchCache.has(cacheKey)) {
       const cached = this.searchCache.get(cacheKey);
       const age = Date.now() - cached.timestamp;
       if (age < 5 * 60 * 1000) { // 5 minutes cache
+        console.log('⚡ Using cached search results (age:', age + 'ms)');
         return cached.data;
+      } else {
+        console.log('🗑️ Cache expired, removing old entry');
+        this.searchCache.delete(cacheKey);
       }
     }
 
@@ -48,10 +57,18 @@ export class AIChatService {
       });
 
       // Cache results
+      console.log('💾 Caching search results for future use');
       this.searchCache.set(cacheKey, {
         data: results,
         timestamp: Date.now()
       });
+      
+      // Clean up old cache entries if cache gets too large
+      if (this.searchCache.size > 50) {
+        console.log('🧹 Cleaning up old cache entries');
+        const oldestKey = Array.from(this.searchCache.keys())[0];
+        this.searchCache.delete(oldestKey);
+      }
 
       return results;
     } catch (error) {
@@ -71,11 +88,18 @@ export class AIChatService {
       const params = new URLSearchParams({
         query,
         mode,
-        limit: '10'
+        limit: '10',
+        searchAll: 'false' // Default to false, will search accessible + public spaces
       });
       
       if (context.currentSpace) {
         params.append('spaceId', context.currentSpace);
+      }
+
+      // For macro mode, we want to search broadly (all accessible + public)
+      if (mode === 'macro') {
+        console.log('🌍 Macro mode: Enabling broad search across accessible + public spaces');
+        // Note: searchAll stays false for privacy, but backend will include public spaces
       }
 
       const response = await fetch(`${API_BASE_URL}/ai-chat/search?${params}`, {

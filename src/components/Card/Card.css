@@ -169,7 +169,7 @@
 /* Card Title */
 .card-title {
   font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-lg);
+  font-size: calc(var(--font-size-lg) * 1.5);
   color: var(--text-primary);
   margin: 0;
   flex: 1;
@@ -179,7 +179,7 @@
 }
 
 .card.expanded .card-title {
-  font-size: var(--font-size-xl);
+  font-size: calc(var(--font-size-xl) * 1.6);
   font-weight: var(--font-weight-bold);
 }
 
@@ -246,17 +246,20 @@
 
 .content-textarea {
   width: 100%;
-  min-height: 200px;
+  min-height: auto;
+  height: auto;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
-  font-size: var(--font-size-base);
-  line-height: 1.6;
+  font-size: calc(var(--font-size-base) * 1.4);
+  line-height: 1.5;
   padding: var(--space-lg);
-  resize: vertical;
+  resize: none;
   font-family: inherit;
   transition: all var(--transition-normal);
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .content-textarea:focus {

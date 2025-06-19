@@ -22,9 +22,16 @@ export const AI_MODES = {
   MACRO: {
     id: 'macro',
     name: 'Macro',
-    description: 'Generate customer service responses using card templates',
+    description: '🤖 Generate complete customer service responses using your card templates. Perfect for creating professional, personalized responses that combine information from multiple cards.',
+    fullDescription: 'Input: Customer query/complaint/request. Process: Semantic search through all user cards for relevant templates, analyze card connections to understand process flow, identify customer intent (refund, complaint, inquiry, etc.), merge multiple card templates into cohesive response, apply appropriate tone (professional, empathetic, solution-focused), include specific details (order numbers, policies, next steps). Output: Complete, ready-to-send customer response with sources showing used cards with spaces and confidence score.',
     icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
-    primary: true
+    primary: true,
+    examples: [
+      'Customer wants refund for damaged item',
+      'Complaint about late delivery',
+      'Question about return policy',
+      'Technical support request'
+    ]
   },
   REPHRASE: {
     id: 'rephrase',
@@ -328,24 +335,41 @@ export const AIChatProvider = ({ children }) => {
 
   // Search through chat and card data
   const searchCards = useCallback(async (query, mode = 'search') => {
+    console.log('\n🔍 === MACRO SEARCH PROCESS START ===');
+    console.log('📝 Query:', query);
+    console.log('🎯 Mode:', mode);
+    console.log('👤 Current User ID:', currentUser?.id);
+    console.log('🏠 Current Space:', currentSpace?.name || 'None');
+    
     try {
       setIsLoading(true);
       
       // Get user's accessible cards and spaces
+      console.log('\n📊 Analyzing user access...');
+      console.log('📚 Total cards in context:', cards?.length || 0);
+      console.log('🏢 Total spaces in context:', spaces?.length || 0);
+      
       const accessibleCards = cards?.filter(card => {
         // Check if user has access to the card's space
         const cardSpace = spaces?.find(space => space.id === card.spaceId);
-        return cardSpace && (
+        const hasAccess = cardSpace && (
           cardSpace.ownerId === currentUser?.id || 
           cardSpace.members?.some(member => member.userId === currentUser?.id)
         );
+        
+        if (hasAccess && cards?.length <= 10) { // Log details only for small datasets
+          console.log(`  ✅ Card: "${card.title}" in space "${cardSpace.name}"`);
+        }
+        
+        return hasAccess;
       }) || [];
 
-      console.log('Accessible cards:', accessibleCards.length);
+      console.log(`\n🎯 Accessible cards found: ${accessibleCards.length}`);
 
       // If no cards available, create mock search results for testing
       if (accessibleCards.length === 0) {
-        return {
+        console.log('⚠️ No accessible cards found - returning mock data for testing');
+        const mockResult = {
           results: [{
             card: {
               id: 'mock_1',
@@ -365,9 +389,17 @@ export const AIChatProvider = ({ children }) => {
           processes: [],
           confidence: 0.7
         };
+        console.log('🔍 === MACRO SEARCH PROCESS END (MOCK) ===\n');
+        return mockResult;
       }
 
       // Perform semantic search through cards
+      console.log('\n🔍 Performing semantic search...');
+      console.log('📦 Search context:', {
+        currentSpaceId: currentSpace?.id,
+        recentActivity: getRecentActivity()
+      });
+      
       const searchResults = await aiChatService.searchCards({
         query,
         cards: accessibleCards,
@@ -380,6 +412,11 @@ export const AIChatProvider = ({ children }) => {
         }
       });
 
+      console.log('\n📊 Search results received:');
+      console.log('🎯 Total results:', searchResults?.results?.length || 0);
+      console.log('💯 Search confidence:', searchResults?.confidence || 'Unknown');
+      console.log('🔍 === MACRO SEARCH PROCESS END ===\n');
+      
       return searchResults;
     } catch (err) {
       console.error('Search error:', err);
@@ -398,44 +435,85 @@ export const AIChatProvider = ({ children }) => {
 
   // Generate AI response based on mode
   const generateAIResponse = useCallback(async (userMessage, mode) => {
+    console.log('\n🤖 === AI RESPONSE GENERATION START ===');
+    console.log('💬 User message:', userMessage.content);
+    console.log('⚙️ Mode:', mode);
+    console.log('🕐 Timestamp:', new Date().toISOString());
+    
     try {
-      console.log('Generating AI response for:', userMessage.content, 'Mode:', mode);
-      
+      // Step 1: Search for relevant cards
+      console.log('\n📡 Step 1: Searching for relevant cards...');
       const searchResults = await searchCards(userMessage.content, mode);
-      console.log('Search results:', searchResults);
+      
+      if (searchResults?.results?.length > 0) {
+        console.log('✅ Found relevant cards:');
+        searchResults.results.slice(0, 3).forEach((result, index) => {
+          console.log(`  ${index + 1}. "${result.card?.title}" (relevance: ${result.relevance || result.score})`);
+        });
+      } else {
+        console.log('❌ No relevant cards found');
+      }
+      
+      // Step 2: Generate AI response
+      console.log('\n🧠 Step 2: Generating AI response...');
+      const aiContext = {
+        currentSpace,
+        user: currentUser,
+        recentActivity: getRecentActivity(),
+        conversation: currentChat?.messages || [],
+        conversationId: currentChatId
+      };
+      
+      console.log('📋 AI Context:', {
+        currentSpaceName: currentSpace?.name,
+        userName: currentUser?.name,
+        conversationLength: currentChat?.messages?.length || 0,
+        conversationId: currentChatId
+      });
       
       const response = await aiChatService.generateResponse({
         message: userMessage,
         mode,
         searchResults,
-        context: {
-          currentSpace,
-          user: currentUser,
-          recentActivity: getRecentActivity(),
-          conversation: currentChat?.messages || [],
-          conversationId: currentChatId
-        }
+        context: aiContext
       });
       
-      console.log('AI response:', response);
+      console.log('\n✅ AI Response generated:');
+      console.log('📝 Content length:', response?.content?.length || 0);
+      console.log('📚 Sources count:', response?.sources?.length || 0);
+      console.log('💯 Confidence:', response?.confidence || 'Unknown');
+      console.log('🤖 === AI RESPONSE GENERATION END ===\n');
+      
       return response;
     } catch (error) {
-      console.error('Generate AI response error:', error);
+      console.error('❌ AI Response generation error:', error);
+      console.log('🤖 === AI RESPONSE GENERATION END (ERROR) ===\n');
       throw error;
     }
   }, [searchCards, currentSpace, currentUser, getRecentActivity, currentChat, currentChatId]);
 
   // Send message
   const sendMessage = useCallback(async (content, images = []) => {
-    if (!content.trim() && images.length === 0) return;
+    console.log('\n💌 === SEND MESSAGE START ===');
+    console.log('📝 Message content:', content);
+    console.log('🖼️ Images count:', images.length);
+    console.log('🎯 Selected mode:', selectedMode);
+    console.log('💬 Current chat ID:', currentChatId);
+    
+    if (!content.trim() && images.length === 0) {
+      console.log('❌ Empty message - aborting');
+      return;
+    }
     
     let chatId = currentChatId;
     if (!chatId) {
+      console.log('🆕 Creating new chat...');
       chatId = await createNewChat();
       if (!chatId) {
-        console.error('Failed to create new chat');
+        console.error('❌ Failed to create new chat');
         return;
       }
+      console.log('✅ New chat created:', chatId);
     }
 
     // Clear draft and images
@@ -446,6 +524,8 @@ export const AIChatProvider = ({ children }) => {
       setIsLoading(true);
       setIsTyping(true);
       setError(null);
+      
+      console.log('\n🚀 Sending message to backend...');
 
       // Send message to backend
       const response = await aiChatService.sendMessage(
@@ -474,6 +554,16 @@ export const AIChatProvider = ({ children }) => {
             }
           : chat
       ));
+      
+      console.log('\n✅ Message successfully processed!');
+      console.log('📊 Final result:', {
+        userMessageId: response.userMessage?.id,
+        aiMessageId: response.aiMessage?.id,
+        aiContentLength: response.aiMessage?.content?.length,
+        sourcesCount: response.aiMessage?.sources?.length,
+        confidence: response.aiMessage?.confidence
+      });
+      console.log('💌 === SEND MESSAGE END ===\n');
 
     } catch (err) {
       console.error('Send message error:', err);

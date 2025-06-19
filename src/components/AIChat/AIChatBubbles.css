@@ -1,7 +1,7 @@
 /* AI Chat Bubbles - ActionBar Style */
 
 .ai-chat-bubbles {
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-sm) var(--space-lg);
   background: transparent;
 }
 

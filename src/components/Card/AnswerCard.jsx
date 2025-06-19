@@ -98,7 +98,7 @@ const AnswerCard = ({
     }
   }, [isExpanded, isEditingTitle]);
 
-  // Handle card click
+  // Handle card click - now only for connect mode and selection
   const handleCardClick = (e) => {
     e.stopPropagation();
     
@@ -126,20 +126,9 @@ const AnswerCard = ({
       return; // Don't expand card when connecting
     }
     
-    // Regular card interaction
-    if (!isExpanded) {
-      setIsExpanded(true);
-      
-      // Select the card when expanding
-      if (onSelect) {
-        onSelect(card.id, false);
-      }
-      
-      // Lock the card when selected
-      if (collaborationSelectCard) {
-        console.log('AnswerCard: Selecting card via collaboration:', card.id);
-        collaborationSelectCard(card.id);
-      }
+    // Only select card on single click, don't expand
+    if (!isExpanded && onSelect) {
+      onSelect(card.id, false);
     }
   };
   
@@ -157,7 +146,21 @@ const AnswerCard = ({
       return; // Cannot expand card locked by others
     }
     
-    setIsExpanded(!isExpanded);
+    // Toggle expansion state
+    const newExpandedState = !isExpanded;
+    setIsExpanded(newExpandedState);
+    
+    // Select and lock the card when expanding
+    if (newExpandedState) {
+      if (onSelect) {
+        onSelect(card.id, false);
+      }
+      
+      if (collaborationSelectCard) {
+        console.log('AnswerCard: Selecting card via collaboration:', card.id);
+        collaborationSelectCard(card.id);
+      }
+    }
   };
   
   // Handle title edit
@@ -220,12 +223,61 @@ const AnswerCard = ({
   useEffect(() => {
     setLocalContent(card.content || '');
   }, [card.content]);
+
+  // Auto-resize textarea to fit content
+  const autoResizeTextarea = useCallback(() => {
+    if (contentTextareaRef.current) {
+      const textarea = contentTextareaRef.current;
+      
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      
+      // Get computed styles to calculate accurate dimensions
+      const computedStyle = window.getComputedStyle(textarea);
+      const fontSize = parseFloat(computedStyle.fontSize);
+      const lineHeight = parseFloat(computedStyle.lineHeight) || fontSize * 1.5;
+      const paddingTop = parseFloat(computedStyle.paddingTop);
+      const paddingBottom = parseFloat(computedStyle.paddingBottom);
+      const borderTop = parseFloat(computedStyle.borderTopWidth);
+      const borderBottom = parseFloat(computedStyle.borderBottomWidth);
+      
+      // Calculate minimum and maximum heights
+      const minLines = 3;
+      const maxLines = 20;
+      const minHeight = lineHeight * minLines + paddingTop + paddingBottom + borderTop + borderBottom;
+      const maxHeight = lineHeight * maxLines + paddingTop + paddingBottom + borderTop + borderBottom;
+      
+      // Get the height needed for the content
+      const neededHeight = Math.max(minHeight, Math.min(maxHeight, textarea.scrollHeight));
+      
+      // Set the height
+      textarea.style.height = `${neededHeight}px`;
+    }
+  }, []);
+
+  // Auto-resize when content changes
+  useEffect(() => {
+    if (isExpanded) {
+      autoResizeTextarea();
+    }
+  }, [localContent, isExpanded, autoResizeTextarea]);
+
+  // Auto-resize when textarea becomes visible
+  useEffect(() => {
+    if (isExpanded && contentTextareaRef.current) {
+      // Small delay to ensure textarea is fully rendered
+      setTimeout(autoResizeTextarea, 10);
+    }
+  }, [isExpanded, autoResizeTextarea]);
   
   const handleContentChange = (e) => {
     const newContent = e.target.value;
     setLocalContent(newContent);
     
     console.log('AnswerCard: Content changed for card:', card.id, 'New content length:', newContent.length);
+    
+    // Auto-resize textarea after content change
+    setTimeout(autoResizeTextarea, 0);
     
     // Clear existing timeout
     if (debouncedUpdateRef.current) {
@@ -416,6 +468,7 @@ const AnswerCard = ({
                 className="content-textarea"
                 value={localContent}
                 onChange={handleContentChange}
+                onInput={autoResizeTextarea}
                 onClick={handleContentClick}
                 onMouseDown={handleContentMouseDown}
                 onKeyDown={handleContentKeyDown}

@@ -83,17 +83,29 @@ const AIChatMessages = () => {
             <line x1="16" y1="13" x2="8" y2="13"></line>
             <line x1="16" y1="17" x2="8" y2="17"></line>
           </svg>
-          <span>Sources used:</span>
+          <span>Card Templates Used:</span>
+          <span className="sources-count">({sources.length} cards)</span>
         </div>
         <div className="sources-list">
           {sources.map((source, index) => (
             <div key={index} className="source-item">
-              <span className="source-space">Space: "{source.space}"</span>
-              <span className="source-separator">-</span>
-              <span className="source-card">Card: "{source.card}"</span>
-              {source.relevance && (
-                <span className="source-relevance">({Math.round(source.relevance * 100)}%)</span>
-              )}
+              <div className="source-main">
+                <span className="source-card-title">"{source.cardTitle || source.card}"</span>
+                <span className="source-space-name">from "{source.spaceName || source.space}"</span>
+              </div>
+              <div className="source-details">
+                {(source.relevanceScore || source.relevance) && (
+                  <span className="source-relevance">
+                    {Math.round((source.relevanceScore || source.relevance * 100))}% match
+                  </span>
+                )}
+                {source.excerpt && (
+                  <div className="source-excerpt">
+                    <span className="excerpt-label">Content:</span>
+                    <span className="excerpt-text">{source.excerpt}</span>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -251,8 +263,33 @@ const AIChatMessages = () => {
                     
                     {message.confidence && (
                       <div className="message-confidence">
-                        <span>Confidence: {Math.round(message.confidence * 100)}%</span>
-                        {message.process && <span> | Process: {message.process}</span>}
+                        <div className="confidence-header">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 12l2 2 4-4"></path>
+                            <circle cx="12" cy="12" r="10"></circle>
+                          </svg>
+                          <span>Response Quality:</span>
+                        </div>
+                        <div className="confidence-details">
+                          <div className="confidence-score">
+                            <span className="confidence-value">{Math.round(message.confidence)}%</span>
+                            <span className="confidence-label">Confidence</span>
+                          </div>
+                          <div className="confidence-bar">
+                            <div 
+                              className="confidence-fill" 
+                              style={{ width: `${Math.round(message.confidence)}%` }}
+                            ></div>
+                          </div>
+                          {message.metadata && message.metadata.mode === 'macro' && (
+                            <div className="macro-stats">
+                              <span>Customer Service Response</span>
+                              {message.sources && (
+                                <span>• {message.sources.length} template{message.sources.length !== 1 ? 's' : ''} used</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </>
