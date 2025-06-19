@@ -265,23 +265,23 @@ class WebSocketService {
         break;
         
       case 'card:created':
-        this.emit('cardCreated', data);
+        this.emit('card:created', data);
         break;
         
       case 'card:updated':
-        this.emit('cardUpdated', data);
+        this.emit('card:updated', data);
         break;
         
       case 'card:deleted':
-        this.emit('cardDeleted', data);
+        this.emit('card:deleted', data);
         break;
         
       case 'connection:created':
-        this.emit('connectionCreated', data);
+        this.emit('connection:created', data);
         break;
         
       case 'connection:deleted':
-        this.emit('connectionDeleted', data);
+        this.emit('connection:deleted', data);
         break;
         
       case 'error':

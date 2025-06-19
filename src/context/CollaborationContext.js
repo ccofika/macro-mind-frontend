@@ -389,6 +389,32 @@ export const CollaborationProvider = ({ children }) => {
       setIsConnected(false);
     };
     
+    // Card creation, update, deletion, and connection handlers
+    const handleCardCreated = (data) => {
+      console.log('Collaboration: Card created by user:', data.userName, 'in space:', data.card.spaceId);
+      // Note: Actual card state is managed by CardContext
+    };
+
+    const handleCardUpdated = (data) => {
+      console.log('Collaboration: Card updated by user:', data.userName, 'in space:', data.card.spaceId);
+      // Note: Actual card state is managed by CardContext
+    };
+
+    const handleCardDeleted = (data) => {
+      console.log('Collaboration: Card deleted by user:', data.userName);
+      // Note: Actual card state is managed by CardContext
+    };
+
+    const handleConnectionCreated = (data) => {
+      console.log('Collaboration: Connection created by user:', data.userName, 'in space:', data.connection.spaceId);
+      // Note: Actual connection state is managed by CardContext
+    };
+
+    const handleConnectionDeleted = (data) => {
+      console.log('Collaboration: Connection deleted by user:', data.userName);
+      // Note: Actual connection state is managed by CardContext
+    };
+
     // Register ALL event listeners (always, regardless of connection status)
     console.log('Collaboration: Registering all event listeners...');
     websocketService.on('authenticated', handleAuthenticated);
@@ -403,6 +429,11 @@ export const CollaborationProvider = ({ children }) => {
     websocketService.on('cardUnlocked', handleCardUnlock);
     websocketService.on('cardSelected', handleCardSelected);
     websocketService.on('cardDeselected', handleCardDeselected);
+    websocketService.on('card:created', handleCardCreated);
+    websocketService.on('card:updated', handleCardUpdated);
+    websocketService.on('card:deleted', handleCardDeleted);
+    websocketService.on('connection:created', handleConnectionCreated);
+    websocketService.on('connection:deleted', handleConnectionDeleted);
     websocketService.on('usersList', handleUsersList);
     websocketService.on('locksList', handleLocksList);
     websocketService.on('selectionsList', handleSelectionsList);
@@ -425,6 +456,11 @@ export const CollaborationProvider = ({ children }) => {
         websocketService.off('cardUnlocked', handleCardUnlock);
         websocketService.off('cardSelected', handleCardSelected);
         websocketService.off('cardDeselected', handleCardDeselected);
+        websocketService.off('card:created', handleCardCreated);
+        websocketService.off('card:updated', handleCardUpdated);
+        websocketService.off('card:deleted', handleCardDeleted);
+        websocketService.off('connection:created', handleConnectionCreated);
+        websocketService.off('connection:deleted', handleConnectionDeleted);
         websocketService.off('usersList', handleUsersList);
         websocketService.off('locksList', handleLocksList);
         websocketService.off('selectionsList', handleSelectionsList);

@@ -210,21 +210,21 @@ export const CardProvider = ({ children }) => {
     };
 
     // Register event listeners
-    websocketService.on('cardCreated', handleCardCreated);
-    websocketService.on('cardUpdated', handleCardUpdated);
-    websocketService.on('cardDeleted', handleCardDeleted);
-    websocketService.on('connectionCreated', handleConnectionCreated);
-    websocketService.on('connectionDeleted', handleConnectionDeleted);
+    websocketService.on('card:created', handleCardCreated);
+    websocketService.on('card:updated', handleCardUpdated);
+    websocketService.on('card:deleted', handleCardDeleted);
+    websocketService.on('connection:created', handleConnectionCreated);
+    websocketService.on('connection:deleted', handleConnectionDeleted);
 
     console.log('CardContext: Websocket event listeners registered for space:', currentSpaceId);
 
     // Cleanup event listeners
     return () => {
-      websocketService.off('cardCreated', handleCardCreated);
-      websocketService.off('cardUpdated', handleCardUpdated);
-      websocketService.off('cardDeleted', handleCardDeleted);
-      websocketService.off('connectionCreated', handleConnectionCreated);
-      websocketService.off('connectionDeleted', handleConnectionDeleted);
+      websocketService.off('card:created', handleCardCreated);
+      websocketService.off('card:updated', handleCardUpdated);
+      websocketService.off('card:deleted', handleCardDeleted);
+      websocketService.off('connection:created', handleConnectionCreated);
+      websocketService.off('connection:deleted', handleConnectionDeleted);
       console.log('CardContext: Websocket event listeners cleaned up');
     };
   }, [currentSpaceId]);
