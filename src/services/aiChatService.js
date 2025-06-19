@@ -670,6 +670,88 @@ Relevance: ${Math.round(result.relevance * 100)}%`;
   }
 
   /**
+   * Send message to conversation
+   */
+  async sendMessage(conversationId, content, mode = 'macro', context = {}, images = []) {
+    try {
+      const formData = new FormData();
+      formData.append('conversationId', conversationId);
+      formData.append('content', content);
+      formData.append('mode', mode);
+      formData.append('context', JSON.stringify(context));
+      
+      // Add images if any
+      images.forEach((image, index) => {
+        formData.append('images', image, `image_${index}`);
+      });
+
+      const response = await fetch(`${API_BASE_URL}/ai-chat/send`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          // Don't set Content-Type for FormData, let browser set it
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Send message failed: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Send message error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Edit message in conversation
+   */
+  async editMessage(conversationId, messageId, content) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ai-chat/conversations/${conversationId}/messages/${messageId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ content })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Edit message failed: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Edit message error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete message from conversation
+   */
+  async deleteMessage(conversationId, messageId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ai-chat/conversations/${conversationId}/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Delete message failed: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Delete message error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Export conversation
    */
   async exportConversation(conversationId, format = 'json') {

@@ -6,33 +6,81 @@
   flex-direction: column;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.02);
+  min-height: 0;
+  height: 100%;
+  position: relative;
 }
 
 .messages-list {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   padding: var(--space-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+  scroll-behavior: smooth;
+  min-height: 0;
+  max-height: 100%;
+  position: relative;
+  /* Debug: Ensure we have content to scroll */
+  min-height: 300px;
+  /* Debug: Add border to see container */
+  /* Debug: Force height to be limited */
+  height: 400px;
+  max-height: 400px;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Enhanced Professional Style */
 .messages-list::-webkit-scrollbar {
-  width: 6px;
+  width: 14px !important;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .messages-list::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 7px;
+  margin: 4px 0;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  -webkit-box-shadow: inset 0 0 6px rgba(255,255,255,0.1);
+  box-shadow: inset 0 0 6px rgba(255,255,255,0.1);
 }
 
 .messages-list::-webkit-scrollbar-thumb {
-  background: var(--glass-border);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.5) !important;
+  border-radius: 7px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: all var(--transition-normal);
+  min-height: 40px;
 }
 
 .messages-list::-webkit-scrollbar-thumb:hover {
-  background: var(--glass-border-hover);
+  background: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: scaleX(1.2);
+}
+
+.messages-list::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Firefox Scrollbar */
+.messages-list {
+  scrollbar-width: auto !important;
+  scrollbar-color: rgba(255, 255, 255, 0.5) rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Force scrollbar to always show */
+.messages-list {
+  overflow-y: scroll !important;
+}
+
+/* Additional fallback for scroll visibility */
+@supports not (scrollbar-width: auto) {
+  .messages-list {
+    scrollbar-width: thick;
+    scrollbar-color: rgba(255, 255, 255, 0.6) rgba(255, 255, 255, 0.2);
+  }
 }
 
 /* Empty States */

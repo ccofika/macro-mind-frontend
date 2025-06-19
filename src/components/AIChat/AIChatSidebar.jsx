@@ -14,7 +14,8 @@ const AIChatSidebar = () => {
     setSidebarCollapsed,
     searchQuery,
     setSearchQuery,
-    exportChat
+    exportChat,
+    loadConversationMessages
   } = useAIChat();
 
   const [editingChatId, setEditingChatId] = useState(null);
@@ -33,9 +34,13 @@ const AIChatSidebar = () => {
   };
 
   // Handle chat selection
-  const handleSelectChat = (chatId) => {
+  const handleSelectChat = async (chatId) => {
+    console.log('Selecting chat:', chatId);
     setCurrentChatId(chatId);
     setEditingChatId(null);
+    
+    // Explicitly load conversation messages
+    await loadConversationMessages(chatId);
   };
 
   // Handle title editing

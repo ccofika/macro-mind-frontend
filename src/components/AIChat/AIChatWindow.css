@@ -31,6 +31,8 @@
   min-height: 400px;
   max-width: 95vw;
   max-height: 95vh;
+  width: 800px;
+  height: 600px;
   animation: scaleIn var(--transition-slow);
 }
 
@@ -150,8 +152,11 @@
 /* Messages Container - Takes 80% of available space */
 .ai-chat-messages-container {
   flex: 1;
-  overflow: hidden;
+  overflow: visible;
   min-height: 0;
+  scroll-behavior: smooth;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Bubble Buttons Container - Compact size */

@@ -101,12 +101,104 @@ export const AIChatProvider = ({ children }) => {
   // Get current chat
   const currentChat = chats.find(chat => chat.id === currentChatId);
 
-  // Initialize default chat
+  // Load chats from MongoDB on mount
   useEffect(() => {
-    if (chats.length === 0) {
-      createNewChat('Welcome Chat');
+    const loadConversations = async () => {
+      if (!currentUser) return;
+      
+      try {
+        setIsLoading(true);
+        const response = await aiChatService.getConversations({ limit: 50 });
+        
+        if (response.conversations && response.conversations.length > 0) {
+          // Transform MongoDB data to local format (without messages initially)
+          const transformedChats = response.conversations.map(conv => ({
+            id: conv.id,
+            title: conv.title,
+            messages: [], // Start with empty messages, load them when chat is selected
+            messagesLoaded: false, // Flag to track if messages are loaded
+            createdAt: conv.createdAt,
+            updatedAt: conv.updatedAt,
+            context: conv.context || {},
+            stats: conv.stats || {}
+          }));
+          
+          setChats(transformedChats);
+          
+          // Set current chat to first one or saved preference
+          const savedCurrentChatId = localStorage.getItem('aiCurrentChatId');
+          if (savedCurrentChatId && transformedChats.find(chat => chat.id === savedCurrentChatId)) {
+            setCurrentChatId(savedCurrentChatId);
+          } else {
+            setCurrentChatId(transformedChats[0].id);
+          }
+        } else {
+          // Create initial welcome chat if none exist
+          await createNewChat('Welcome Chat');
+        }
+      } catch (error) {
+        console.error('Error loading conversations:', error);
+        // Fallback to creating a new chat
+        await createNewChat('Welcome Chat');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadConversations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]); // Load when user changes
+
+  // Save current chat ID to localStorage for quick access
+  useEffect(() => {
+    if (currentChatId) {
+      localStorage.setItem('aiCurrentChatId', currentChatId);
     }
-  }, []);
+  }, [currentChatId]);
+
+  // Function to load conversation messages
+  const loadConversationMessages = useCallback(async (chatId) => {
+    if (!chatId || !currentUser) {
+      console.log('Skipping message load - no chatId or user:', { chatId, currentUser: !!currentUser });
+      return;
+    }
+    
+    console.log('Loading messages for chat:', chatId);
+    
+    try {
+      setIsLoading(true);
+      
+      // Get full conversation with messages from backend
+      const fullConversation = await aiChatService.getConversation(chatId);
+      console.log('Loaded conversation:', fullConversation);
+      
+      // Update the specific chat in local state with full messages
+      setChats(prev => prev.map(chat => 
+        chat.id === chatId 
+          ? {
+              ...chat,
+              messages: fullConversation.messages || [],
+              messagesLoaded: true,
+              context: fullConversation.context || chat.context,
+              stats: fullConversation.stats || chat.stats
+            }
+          : chat
+      ));
+      
+    } catch (error) {
+      console.error('Error loading conversation messages:', error);
+      setError('Failed to load conversation messages');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser]); // Removed chats dependency to avoid cycles
+
+  // Load messages when chat is selected
+  useEffect(() => {
+    if (currentChatId && chats.length > 0) {
+      loadConversationMessages(currentChatId);
+    }
+  }, [currentChatId, loadConversationMessages]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -114,46 +206,103 @@ export const AIChatProvider = ({ children }) => {
   }, [currentChat?.messages]);
 
   // Create new chat
-  const createNewChat = useCallback((title = 'New Chat') => {
-    const newChat = {
-      id: `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title,
-      messages: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      mode: selectedMode,
-      context: {
-        spaceId: currentSpace?.id,
-        spaceName: currentSpace?.name,
-        userId: currentUser?.id,
-        userName: currentUser?.name
-      }
-    };
+  const createNewChat = useCallback(async (title = 'New Chat') => {
+    try {
+      setIsLoading(true);
+      
+      const response = await aiChatService.createConversation({
+        title,
+        context: {
+          spaceId: currentSpace?.id,
+          spaceName: currentSpace?.name,
+          userId: currentUser?.id,
+          userName: currentUser?.name
+        }
+      });
 
-    setChats(prev => [newChat, ...prev]);
-    setCurrentChatId(newChat.id);
-    return newChat.id;
+      // Add to local state
+      const newChat = {
+        id: response.id,
+        title: response.title,
+        messages: [],
+        createdAt: response.createdAt,
+        updatedAt: response.createdAt,
+        context: response.context || {},
+        stats: { messageCount: 0, totalTokensUsed: 0 }
+      };
+
+      setChats(prev => [newChat, ...prev]);
+      setCurrentChatId(newChat.id);
+      return newChat.id;
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      setError('Failed to create new conversation');
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
   }, [selectedMode, currentSpace, currentUser]);
 
   // Delete chat
-  const deleteChat = useCallback((chatId) => {
-    setChats(prev => prev.filter(chat => chat.id !== chatId));
-    if (currentChatId === chatId) {
-      const remainingChats = chats.filter(chat => chat.id !== chatId);
-      setCurrentChatId(remainingChats.length > 0 ? remainingChats[0].id : null);
-      if (remainingChats.length === 0) {
-        createNewChat();
+  const deleteChat = useCallback(async (chatId) => {
+    try {
+      setIsLoading(true);
+      
+      // Delete from MongoDB
+      await aiChatService.deleteConversation(chatId);
+      
+      // Update local state
+      setChats(prev => prev.filter(chat => chat.id !== chatId));
+      
+      if (currentChatId === chatId) {
+        const remainingChats = chats.filter(chat => chat.id !== chatId);
+        if (remainingChats.length > 0) {
+          setCurrentChatId(remainingChats[0].id);
+        } else {
+          setCurrentChatId(null);
+          // Create new chat if none remain
+          await createNewChat('Welcome Chat');
+        }
       }
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      setError('Failed to delete conversation');
+    } finally {
+      setIsLoading(false);
     }
   }, [currentChatId, chats, createNewChat]);
 
   // Update chat title
-  const updateChatTitle = useCallback((chatId, newTitle) => {
-    setChats(prev => prev.map(chat => 
-      chat.id === chatId 
-        ? { ...chat, title: newTitle, updatedAt: new Date().toISOString() }
-        : chat
-    ));
+  const updateChatTitle = useCallback(async (chatId, newTitle) => {
+    try {
+      setIsLoading(true);
+      
+      // Update title on backend
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/ai-chat/conversations/${chatId}/title`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ title: newTitle })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update conversation title');
+      }
+      
+      // Update local state
+      setChats(prev => prev.map(chat => 
+        chat.id === chatId 
+          ? { ...chat, title: newTitle, updatedAt: new Date().toISOString() }
+          : chat
+      ));
+    } catch (error) {
+      console.error('Error updating chat title:', error);
+      setError('Failed to update conversation title');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   // Get recent user activity for context
@@ -282,33 +431,12 @@ export const AIChatProvider = ({ children }) => {
     
     let chatId = currentChatId;
     if (!chatId) {
-      chatId = createNewChat();
+      chatId = await createNewChat();
       if (!chatId) {
         console.error('Failed to create new chat');
         return;
       }
     }
-
-    const userMessage = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      type: 'user',
-      content: content.trim(),
-      images,
-      timestamp: new Date().toISOString(),
-      mode: selectedMode
-    };
-
-    // Add user message to chat
-    setChats(prev => prev.map(chat => 
-      chat.id === chatId 
-        ? { 
-            ...chat, 
-            messages: [...chat.messages, userMessage],
-            updatedAt: new Date().toISOString(),
-            title: chat.messages.length === 0 ? content.substring(0, 30) + '...' : chat.title
-          }
-        : chat
-    ));
 
     // Clear draft and images
     setDraft('');
@@ -319,36 +447,39 @@ export const AIChatProvider = ({ children }) => {
       setIsTyping(true);
       setError(null);
 
-      // Get AI response based on selected mode
-      const response = await generateAIResponse(userMessage, selectedMode);
-      
-      // Add AI response to chat
-      const aiMessage = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type: 'ai',
-        content: response.content,
-        sources: response.sources,
-        confidence: response.confidence,
-        process: response.process,
-        timestamp: new Date().toISOString(),
-        mode: selectedMode
-      };
+      // Send message to backend
+      const response = await aiChatService.sendMessage(
+        chatId,
+        content.trim(),
+        selectedMode,
+        {
+          spaceId: currentSpace?.id,
+          spaceName: currentSpace?.name,
+          userId: currentUser?.id,
+          userName: currentUser?.name,
+          activeCards: [],
+          recentActivity: []
+        },
+        images
+      );
 
+      // Update local state with both user and AI messages
       setChats(prev => prev.map(chat => 
         chat.id === chatId 
           ? { 
               ...chat, 
-              messages: [...chat.messages, aiMessage],
-              updatedAt: new Date().toISOString()
+              messages: [...chat.messages, response.userMessage, response.aiMessage],
+              updatedAt: new Date().toISOString(),
+              title: chat.messages.length === 0 ? content.substring(0, 50) + (content.length > 50 ? '...' : '') : chat.title
             }
           : chat
       ));
 
     } catch (err) {
-      console.error('AI response error:', err);
-      setError(err.message || 'Failed to get AI response');
+      console.error('Send message error:', err);
+      setError(err.message || 'Failed to send message');
       
-      // Add error message
+      // Add error message to local state
       const errorMessage = {
         id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         type: 'error',
@@ -370,40 +501,66 @@ export const AIChatProvider = ({ children }) => {
       setIsLoading(false);
       setIsTyping(false);
     }
-  }, [currentChatId, selectedMode, createNewChat, generateAIResponse]);
+  }, [currentChatId, selectedMode, createNewChat, currentSpace, currentUser]);
 
   // Edit message
-  const editMessage = useCallback((messageId, newContent) => {
+  const editMessage = useCallback(async (messageId, newContent) => {
     if (!currentChatId) return;
 
-    setChats(prev => prev.map(chat => 
-      chat.id === currentChatId 
-        ? {
-            ...chat,
-            messages: chat.messages.map(msg => 
-              msg.id === messageId 
-                ? { ...msg, content: newContent, edited: true, editedAt: new Date().toISOString() }
-                : msg
-            ),
-            updatedAt: new Date().toISOString()
-          }
-        : chat
-    ));
+    try {
+      setIsLoading(true);
+      
+      // Update message on backend
+      await aiChatService.editMessage(currentChatId, messageId, newContent);
+      
+      // Update local state
+      setChats(prev => prev.map(chat => 
+        chat.id === currentChatId 
+          ? {
+              ...chat,
+              messages: chat.messages.map(msg => 
+                msg.id === messageId 
+                  ? { ...msg, content: newContent, edited: true, editedAt: new Date().toISOString() }
+                  : msg
+              ),
+              updatedAt: new Date().toISOString()
+            }
+          : chat
+      ));
+    } catch (error) {
+      console.error('Error editing message:', error);
+      setError('Failed to edit message');
+    } finally {
+      setIsLoading(false);
+    }
   }, [currentChatId]);
 
   // Delete message
-  const deleteMessage = useCallback((messageId) => {
+  const deleteMessage = useCallback(async (messageId) => {
     if (!currentChatId) return;
 
-    setChats(prev => prev.map(chat => 
-      chat.id === currentChatId 
-        ? {
-            ...chat,
-            messages: chat.messages.filter(msg => msg.id !== messageId),
-            updatedAt: new Date().toISOString()
-          }
-        : chat
-    ));
+    try {
+      setIsLoading(true);
+      
+      // Delete message on backend
+      await aiChatService.deleteMessage(currentChatId, messageId);
+      
+      // Update local state
+      setChats(prev => prev.map(chat => 
+        chat.id === currentChatId 
+          ? {
+              ...chat,
+              messages: chat.messages.filter(msg => msg.id !== messageId),
+              updatedAt: new Date().toISOString()
+            }
+          : chat
+      ));
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      setError('Failed to delete message');
+    } finally {
+      setIsLoading(false);
+    }
   }, [currentChatId]);
 
   // Scroll to bottom
@@ -510,6 +667,7 @@ export const AIChatProvider = ({ children }) => {
     deleteMessage,
     searchCards,
     exportChat,
+    loadConversationMessages,
     
     // UI Actions
     openChat,
