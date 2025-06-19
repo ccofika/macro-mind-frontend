@@ -29,12 +29,14 @@
   padding: var(--space-xl);
   cursor: move;
   user-select: none;
-  transition: all var(--transition-slow);
+  transition: box-shadow var(--transition-slow), border-color var(--transition-slow), background var(--transition-slow);
   z-index: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   animation: fadeIn var(--transition-slow);
+  /* Optimizations for smooth dragging */
+  will-change: transform;
 }
 
 /* Card States */
@@ -59,6 +61,8 @@
   opacity: 0.95;
   z-index: 100;
   transform: rotate(2deg);
+  /* Remove all transitions during dragging for instant response */
+  transition: none !important;
 }
 
 .card.hovered {

@@ -70,12 +70,13 @@ const AnswerCard = ({
   // Setup drag and drop functionality
   const { position, isDragging, handleMouseDown, updatePosition } = useDragAndDrop(card.id, card.position);
   
-  // Sync with external position changes
+  // Sync with external position changes (only when not dragging locally)
   useEffect(() => {
-    if (JSON.stringify(card.position) !== JSON.stringify(position)) {
+    // Only update position if we're not currently dragging this card
+    if (!isDragging && JSON.stringify(card.position) !== JSON.stringify(position)) {
       updatePosition(card.position);
     }
-  }, [card.position, updatePosition, position]);
+  }, [card.position, updatePosition, position, isDragging]);
 
   // Clear AI response when card is closed
   useEffect(() => {

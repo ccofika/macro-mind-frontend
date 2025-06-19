@@ -154,20 +154,20 @@ export const CardProvider = ({ children }) => {
             return prevCards;
           }
           
-          const updatedCards = prevCards.map(card => 
-            card.id === data.card.id ? { ...card, ...data.card } : card
+          // Check if this card is currently being dragged locally
+          // If so, ignore the network update to prevent conflicts
+          const isDraggedLocally = moveCard.throttledUpdates && moveCard.throttledUpdates.has(data.card.id);
+          if (isDraggedLocally) {
+            console.log('CardContext: Ignoring network update for locally dragged card:', data.card.id);
+            return prevCards;
+          }
+          
+          console.log('CardContext: Updating card from network:', data.card.id);
+          return prevCards.map(card => 
+            card.id === data.card.id 
+              ? { ...card, ...data.card, updatedAt: new Date().toISOString() }
+              : card
           );
-          console.log('CardContext: Updated card from remote user:', {
-            cardId: data.card.id,
-            oldPosition: existingCard.position,
-            newPosition: data.card.position
-          });
-          return updatedCards;
-        });
-      } else {
-        console.log('CardContext: Ignoring card updated event - wrong space:', {
-          cardSpaceId: data.card.spaceId,
-          currentSpaceId: currentSpaceId
         });
       }
     };
@@ -442,43 +442,48 @@ export const CardProvider = ({ children }) => {
     updateCardDebounced.debouncedFunctions.get(id)(id, updates);
   }, []); // Remove cards dependency to avoid recreating functions
 
-  // Move card
+  // Move card - optimized for instant local updates
   const moveCard = useCallback((id, position, isRealTime = false) => {
+    // INSTANT local state update - no delays
     setCards(prevCards => {
-      return prevCards.map(card => 
+      const updatedCards = prevCards.map(card => 
         card.id === id 
           ? { ...card, position } 
           : card
       );
-    });
-    
-    // Send real-time position updates during dragging (throttled)
-    if (isRealTime) {
-      // Create throttled websocket update function per card
-      if (!moveCard.throttledUpdates) {
-        moveCard.throttledUpdates = new Map();
-      }
       
-      if (!moveCard.throttledUpdates.has(id)) {
-        moveCard.throttledUpdates.set(id, throttle((cardId, pos) => {
-          setCards(currentCards => {
-            const card = currentCards.find(c => c.id === cardId);
-            if (card) {
-              const updatedCard = { ...card, position: pos, updatedAt: new Date().toISOString() };
-              console.log('CardContext: Sending real-time position update for card:', cardId, pos);
+      // Send network updates immediately for real-time dragging
+      if (isRealTime) {
+        // Create throttled websocket update function per card
+        if (!moveCard.throttledUpdates) {
+          moveCard.throttledUpdates = new Map();
+        }
+        
+        if (!moveCard.throttledUpdates.has(id)) {
+          moveCard.throttledUpdates.set(id, throttle((cardId, pos) => {
+            // Find the latest card data for network update
+            const currentCard = updatedCards.find(c => c.id === cardId);
+            if (currentCard) {
+              const updatedCard = { ...currentCard, position: pos, updatedAt: new Date().toISOString() };
               websocketService.notifyCardUpdated(updatedCard);
             }
-            return currentCards; // No state change needed
-          });
-        }, 100)); // Throttle to max 10 updates per second
+          }, 50)); // Faster network updates - 20fps instead of 10fps
+        }
+        
+        moveCard.throttledUpdates.get(id)(id, position);
       }
       
-      moveCard.throttledUpdates.get(id)(id, position);
-    }
-  }, []); // Remove cards dependency
+      return updatedCards;
+    });
+  }, []); // No dependencies to avoid recreating function
 
   // Finalize move (add to history and update server)
   const finalizeMoveCard = useCallback(async () => {
+    // Clear all throttled updates to allow network updates again
+    if (moveCard.throttledUpdates) {
+      moveCard.throttledUpdates.clear();
+    }
+    
     // Get current state and add to history
     setCards(currentCards => {
       setConnections(currentConnections => {

@@ -16,14 +16,17 @@ export const useDragAndDrop = (id, initialPosition) => {
     startMouseY: 0,
     startCardX: 0,
     startCardY: 0,
-    lastX: 0,
-    lastY: 0,
-    rafId: null
+    lastNetworkUpdate: 0,
+    networkThrottle: 50 // 20 FPS for network updates (was 100ms, now 50ms)
   });
   
-  // Update position with proper canvas transformation
+  // Immediate position update without RAF for instant response
   const updateCardPosition = useCallback((clientX, clientY) => {
     const state = dragStateRef.current;
+    
+    if (!state.isDragging) return;
+    
+    let newPosition;
     
     if (screenToCanvas) {
       // Use screenToCanvas to convert mouse position
@@ -35,20 +38,10 @@ export const useDragAndDrop = (id, initialPosition) => {
       const deltaY = currentCanvasPos.y - startCanvasPos.y;
       
       // Apply delta to starting position
-      const newPosition = {
+      newPosition = {
         x: state.startCardX + deltaX,
         y: state.startCardY + deltaY
       };
-      
-      // Update both local state and context with real-time flag
-      setPosition(newPosition);
-      console.log('DragAndDrop: Sending real-time position update (canvas):', {
-        cardId: id,
-        newPosition: newPosition,
-        deltaX: deltaX,
-        deltaY: deltaY
-      });
-      moveCard(id, newPosition, true); // Enable real-time updates during drag
     } else {
       // Fallback if screenToCanvas is not available
       // Calculate delta in screen coordinates
@@ -56,44 +49,28 @@ export const useDragAndDrop = (id, initialPosition) => {
       const deltaY = clientY - state.startMouseY;
       
       // Apply the delta with zoom compensation
-      const newPosition = {
+      newPosition = {
         x: state.startCardX + deltaX / zoom,
         y: state.startCardY + deltaY / zoom
       };
-      
-      // Update both local state and context with real-time flag
-      setPosition(newPosition);
-      console.log('DragAndDrop: Sending real-time position update (fallback):', {
-        cardId: id,
-        newPosition: newPosition,
-        deltaX: deltaX,
-        deltaY: deltaY,
-        zoom: zoom
-      });
-      moveCard(id, newPosition, true); // Enable real-time updates during drag
     }
     
-    // Update last position for next frame
-    state.lastX = clientX;
-    state.lastY = clientY;
+    // INSTANT local state update - no RAF delay
+    setPosition(newPosition);
+    
+    // Network updates with smarter throttling
+    const now = Date.now();
+    if (now - state.lastNetworkUpdate >= state.networkThrottle) {
+      state.lastNetworkUpdate = now;
+      // Only send network updates, don't update local position again
+      moveCard(id, newPosition, true);
+    }
   }, [id, zoom, screenToCanvas, moveCard]);
   
-  // Optimized mouse move handler using RAF
+  // Direct mouse move handler without RAF for instant response
   const handleMouseMove = useCallback((e) => {
-    const state = dragStateRef.current;
-    
-    if (!state.isDragging) return;
-    
-    // Cancel previous RAF if exists
-    if (state.rafId) {
-      cancelAnimationFrame(state.rafId);
-    }
-    
-    // Use requestAnimationFrame for smooth updates
-    state.rafId = requestAnimationFrame(() => {
-      updateCardPosition(e.clientX, e.clientY);
-      state.rafId = null;
-    });
+    // INSTANT update - no RAF delay
+    updateCardPosition(e.clientX, e.clientY);
   }, [updateCardPosition]);
   
   // Mouse up handler
@@ -104,20 +81,13 @@ export const useDragAndDrop = (id, initialPosition) => {
       state.isDragging = false;
       setIsDragging(false);
       
-      // Cancel any pending RAF
-      if (state.rafId) {
-        cancelAnimationFrame(state.rafId);
-        state.rafId = null;
-      }
-      
       // Finalize the move
-      console.log('DragAndDrop: Finalizing card move for:', id);
       finalizeMoveCard();
       
       // Clean up cursor
       document.body.style.cursor = '';
     }
-  }, [finalizeMoveCard]);
+  }, [id, finalizeMoveCard]);
   
   // Start dragging
   const handleMouseDown = useCallback((e) => {
@@ -141,21 +111,27 @@ export const useDragAndDrop = (id, initialPosition) => {
     state.startMouseY = e.clientY;
     state.startCardX = position.x;
     state.startCardY = position.y;
-    state.lastX = e.clientX;
-    state.lastY = e.clientY;
+    state.lastNetworkUpdate = 0; // Reset network throttle
     
     setIsDragging(true);
     
     // Set cursor for entire document
     document.body.style.cursor = 'grabbing';
     
-    // Add global event listeners
-    const mouseMoveHandler = (e) => handleMouseMove(e);
-    const mouseUpHandler = () => handleMouseUp();
+    // Add global event listeners with passive: false for better performance
+    const mouseMoveHandler = (e) => {
+      e.preventDefault(); // Prevent any default behavior
+      handleMouseMove(e);
+    };
+    const mouseUpHandler = (e) => {
+      e.preventDefault();
+      handleMouseUp();
+      cleanup();
+    };
     
     // Use capture phase for better event handling
-    document.addEventListener('mousemove', mouseMoveHandler, { capture: true });
-    document.addEventListener('mouseup', mouseUpHandler, { capture: true });
+    document.addEventListener('mousemove', mouseMoveHandler, { capture: true, passive: false });
+    document.addEventListener('mouseup', mouseUpHandler, { capture: true, passive: false, once: true });
     
     // Store cleanup function
     const cleanup = () => {
@@ -163,15 +139,6 @@ export const useDragAndDrop = (id, initialPosition) => {
       document.removeEventListener('mouseup', mouseUpHandler, { capture: true });
       document.body.style.cursor = '';
     };
-    
-    // Attach cleanup to mouseup
-    const enhancedMouseUp = () => {
-      handleMouseUp();
-      cleanup();
-    };
-    
-    document.removeEventListener('mouseup', mouseUpHandler, { capture: true });
-    document.addEventListener('mouseup', enhancedMouseUp, { capture: true, once: true });
     
   }, [id, position, selectCard, handleMouseMove, handleMouseUp]);
   
@@ -189,24 +156,18 @@ export const useDragAndDrop = (id, initialPosition) => {
     handleMouseDown(mouseEvent);
   }, [handleMouseDown]);
   
-  // Sync position when it changes externally
+  // Sync position when it changes externally (from network updates)
   const updatePosition = useCallback((newPosition) => {
-    setPosition(newPosition);
-    
-    // Update drag state if currently dragging
-    if (dragStateRef.current.isDragging) {
-      dragStateRef.current.startCardX = newPosition.x;
-      dragStateRef.current.startCardY = newPosition.y;
+    // Only update if not currently dragging locally
+    if (!dragStateRef.current.isDragging) {
+      setPosition(newPosition);
     }
+    // If dragging, ignore external updates to prevent conflicts
   }, []);
   
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      const state = dragStateRef.current;
-      if (state.rafId) {
-        cancelAnimationFrame(state.rafId);
-      }
       document.body.style.cursor = '';
     };
   }, []);
