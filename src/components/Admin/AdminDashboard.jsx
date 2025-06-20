@@ -111,7 +111,7 @@ const AdminDashboard = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <AdminOverview />;
+        return <AdminOverview setActiveTab={setActiveTab} />;
       case 'users-cards':
         return <AdminUsersCards />;
       case 'ai-analytics':
@@ -123,7 +123,7 @@ const AdminDashboard = () => {
       case 'database':
         return <AdminDatabaseManagement />;
       default:
-        return <AdminOverview />;
+        return <AdminOverview setActiveTab={setActiveTab} />;
     }
   };
 

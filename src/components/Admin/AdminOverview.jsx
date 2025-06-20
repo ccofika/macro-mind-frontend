@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import adminService from '../../services/adminService';
 import './AdminPages.css';
 
-const AdminOverview = () => {
+const AdminOverview = ({ setActiveTab }) => {
   const [overviewData, setOverviewData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -434,7 +434,7 @@ const AdminOverview = () => {
         <div className="admin-quick-actions">
           <h2>Quick Actions</h2>
           <div className="action-grid">
-            <button className="admin-action-card" onClick={() => window.location.hash = '#user-management'}>
+            <button className="admin-action-card" onClick={() => setActiveTab('user-management')}>
               <div className="action-icon">
                 <UsersIcon />
               </div>
@@ -444,7 +444,7 @@ const AdminOverview = () => {
               </div>
             </button>
 
-            <button className="admin-action-card" onClick={() => window.location.hash = '#database'}>
+            <button className="admin-action-card" onClick={() => setActiveTab('database')}>
               <div className="action-icon">
                 <ServerIcon />
               </div>
@@ -454,7 +454,7 @@ const AdminOverview = () => {
               </div>
             </button>
 
-            <button className="admin-action-card" onClick={() => window.location.hash = '#ai-analytics'}>
+            <button className="admin-action-card" onClick={() => setActiveTab('ai-analytics')}>
               <div className="action-icon">
                 <BrainIcon />
               </div>
@@ -464,7 +464,7 @@ const AdminOverview = () => {
               </div>
             </button>
 
-            <button className="admin-action-card" onClick={() => window.location.hash = '#users-cards'}>
+            <button className="admin-action-card" onClick={() => setActiveTab('users-cards')}>
               <div className="action-icon">
                 <CardIcon />
               </div>
