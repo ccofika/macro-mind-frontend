@@ -1,4 +1,4 @@
-/* CursorTrail.css */
+/* Enhanced CursorTrail - Professional Glassmorphism Design */
 
 .cursor-container {
   position: absolute;
@@ -8,79 +8,267 @@
   height: 100%;
   pointer-events: none;
   z-index: 1000;
+  overflow: hidden;
 }
 
+/* Enhanced Remote Cursor */
 .remote-cursor {
   position: absolute;
-  transform: translate(-4px, -4px);
-  transition: all 0.1s ease;
+  transform: translate(-6px, -6px);
+  transition: all var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+  animation: cursorAppear 0.3s ease-out;
 }
 
+/* Enhanced Cursor Pointer */
 .cursor-pointer {
   position: relative;
-  transform-origin: 0 0;
-  animation: cursorPulse 2s infinite;
+  transform-origin: 4px 4px;
+  animation: cursorPulse 3s infinite ease-in-out;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
 }
 
+.cursor-pointer svg {
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
+}
+
+.cursor-pointer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  background: radial-gradient(circle at 30% 30%, 
+    rgba(255, 255, 255, 0.6) 0%, 
+    rgba(255, 255, 255, 0.2) 30%, 
+    transparent 60%);
+  pointer-events: none;
+  border-radius: 2px;
+}
+
+/* Enhanced Cursor Label */
 .cursor-label {
   position: absolute;
-  top: 18px;
-  left: 10px;
-  background-color: var(--user-color);
-  color: white;
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 10px;
+  top: 22px;
+  left: 12px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-lg);
   white-space: nowrap;
   transform: translateY(-50%);
-  opacity: 0.9;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  opacity: 0.95;
+  box-shadow: var(--shadow-lg);
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: all var(--transition-normal);
+  position: relative;
 }
 
-/* Animation for cursor */
+.cursor-label::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    transparent 50%, 
+    rgba(255, 255, 255, 0.05) 100%);
+  border-radius: var(--radius-lg);
+  pointer-events: none;
+}
+
+.cursor-label::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -8px;
+  width: 8px;
+  height: 8px;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-right: none;
+  border-bottom: none;
+  transform: rotate(45deg);
+  backdrop-filter: blur(20px);
+}
+
+/* User Color Accent */
+.remote-cursor[style*="--user-color"] .cursor-label {
+  border-left: 3px solid var(--user-color, var(--text-accent));
+}
+
+.remote-cursor[style*="--user-color"] .cursor-pointer svg path {
+  filter: drop-shadow(0 0 4px var(--user-color, var(--text-accent)));
+}
+
+/* Enhanced Animations */
+@keyframes cursorAppear {
+  from {
+    opacity: 0;
+    transform: translate(-6px, -6px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-6px, -6px) scale(1);
+  }
+}
+
 @keyframes cursorPulse {
   0%, 100% {
     transform: scale(1);
   }
   50% {
-    transform: scale(1.05);
+    transform: scale(1.08);
   }
 }
 
-/* Trail effect */
+/* Enhanced Trail Effect */
 .cursor-trail {
   position: absolute;
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background-color: var(--user-color);
-  opacity: 0.5;
+  background: radial-gradient(circle, 
+    var(--user-color, var(--text-accent)) 0%, 
+    transparent 70%);
+  opacity: 0.6;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  animation: fadeOut 1s forwards;
+  animation: trailFadeOut 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  box-shadow: 0 0 8px var(--user-color, var(--text-accent));
 }
 
-@keyframes fadeOut {
+@keyframes trailFadeOut {
   0% {
-    opacity: 0.5;
+    opacity: 0.6;
     transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1.2);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.5);
+    transform: translate(-50%, -50%) scale(0.3);
   }
 }
 
-/* Responsive styles */
+/* Hover Effects */
+.remote-cursor:hover .cursor-label {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: var(--shadow-xl);
+}
+
+.remote-cursor:hover .cursor-pointer {
+  animation-duration: 1.5s;
+}
+
+/* Multiple Cursor Stacking */
+.remote-cursor:nth-child(odd) {
+  z-index: 1001;
+}
+
+.remote-cursor:nth-child(even) {
+  z-index: 1002;
+}
+
+/* Enhanced Responsive Design */
 @media (max-width: 768px) {
+  .cursor-pointer svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .cursor-pointer::after {
+    width: 16px;
+    height: 16px;
+  }
+
   .cursor-label {
     font-size: 10px;
-    padding: 1px 6px;
+    padding: 2px var(--space-xs);
+    max-width: 100px;
+    top: 20px;
+    left: 10px;
+  }
+
+  .remote-cursor {
+    transform: translate(-4px, -4px);
+  }
+
+  @keyframes cursorAppear {
+    from {
+      opacity: 0;
+      transform: translate(-4px, -4px) scale(0.8);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-4px, -4px) scale(1);
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .cursor-label {
+    font-size: 9px;
+    padding: 1px var(--space-xs);
     max-width: 80px;
+  }
+
+  .cursor-trail {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .remote-cursor {
+    transition: none;
+    animation: none;
+  }
+
+  .cursor-pointer {
+    animation: none;
+  }
+
+  .cursor-trail {
+    animation: none;
+    opacity: 0.3;
+  }
+
+  .cursor-label {
+    transition: none;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .cursor-label {
+    background: var(--glass-bg-strong);
+    border-width: 2px;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .cursor-pointer svg path {
+    stroke: rgba(0, 0, 0, 0.8);
+    stroke-width: 0.5;
+  }
+
+  .remote-cursor {
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.8));
   }
 } 
