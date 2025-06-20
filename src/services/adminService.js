@@ -69,6 +69,16 @@ const adminService = {
     }
   },
 
+  getUsersCardsTrends: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams(params).toString();
+      const response = await adminApi.get(`/admin/analytics/users-cards/trends?${queryParams}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   // ===============================
   // AI ANALYTICS
   // ===============================

@@ -4,7 +4,9 @@ import './AdminPages.css';
 
 const AdminUsersCards = () => {
   const [overviewData, setOverviewData] = useState(null);
+  const [trendsData, setTrendsData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [trendsLoading, setTrendsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [timeRange, setTimeRange] = useState('30d');
   const [refreshing, setRefreshing] = useState(false);
@@ -18,6 +20,12 @@ const AdminUsersCards = () => {
   useEffect(() => {
     fetchData();
   }, [timeRange, sortBy, sortOrder, filterBy, currentPage]);
+
+  useEffect(() => {
+    if (activeTab === 'trends') {
+      fetchTrendsData();
+    }
+  }, [activeTab, timeRange]);
 
   const fetchData = async () => {
     try {
@@ -46,9 +54,30 @@ const AdminUsersCards = () => {
     }
   };
 
+  const fetchTrendsData = async () => {
+    try {
+      setTrendsLoading(true);
+      const response = await adminService.getUsersCardsTrends({ timeRange });
+      if (response.success) {
+        setTrendsData(response.data);
+      } else {
+        setError(response.message || 'Failed to load trends data');
+      }
+    } catch (err) {
+      console.error('Trends analytics error:', err);
+      setError(err.message || 'Error loading trends data');
+    } finally {
+      setTrendsLoading(false);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchData();
+    if (activeTab === 'trends') {
+      await fetchTrendsData();
+    } else {
+      await fetchData();
+    }
   };
 
   const handleSearch = (e) => {
@@ -342,7 +371,7 @@ ${userDetails.spaceText}`);
           </h1>
           <p>Loading comprehensive user behavior analytics...</p>
         </div>
-        <div className="admin-loading">
+      <div className="admin-loading">
           <SpinnerIcon />
           <p>Loading analytics data...</p>
         </div>
@@ -360,14 +389,14 @@ ${userDetails.spaceText}`);
           </h1>
           <p>Comprehensive user behavior analytics</p>
         </div>
-        <div className="admin-error">
+      <div className="admin-error">
           <WarningIcon />
           <h3>Error Loading Analytics</h3>
-          <p>{error}</p>
+        <p>{error}</p>
           <button className="admin-retry-btn" onClick={fetchData}>
             <RefreshIcon />
-            Retry
-          </button>
+          Retry
+        </button>
         </div>
       </div>
     );
@@ -515,11 +544,11 @@ ${userDetails.spaceText}`);
                   <div className="collab-stat">
                     <h4>Average Members per Space</h4>
                     <span className="stat-value">{Math.round(collaborationPatterns.avgMembersPerSpace || 0)}</span>
-                  </div>
+                    </div>
                   <div className="collab-stat">
                     <h4>Public Spaces</h4>
                     <span className="stat-value">{collaborationPatterns.publicSpaceCount || 0}</span>
-                  </div>
+                    </div>
                   <div className="collab-stat">
                     <h4>Private Spaces</h4>
                     <span className="stat-value">{collaborationPatterns.privateSpaceCount || 0}</span>
@@ -528,8 +557,8 @@ ${userDetails.spaceText}`);
                     <h4>Total Workspaces</h4>
                     <span className="stat-value">{collaborationPatterns.totalSpaces || 0}</span>
                   </div>
-                </div>
               </div>
+            </div>
 
               <div className="top-users-section">
                 <h2>
@@ -537,21 +566,31 @@ ${userDetails.spaceText}`);
                   Most Active Card Creators
                 </h2>
                 <div className="user-list">
-                  {cardAnalytics.slice && cardAnalytics.slice(0, 5).map((creator, index) => (
-                    <div key={creator._id} className="user-item">
-                      <div className="user-rank">#{index + 1}</div>
-                      <div className="user-avatar">
-                        {creator.name?.charAt(0).toUpperCase() || 'U'}
-                      </div>
-                      <div className="user-info">
-                        <h4>{creator.name || 'Unknown User'}</h4>
-                        <span>{creator.cardCount || 0} cards created</span>
-                      </div>
-                      <div className="user-stats">
-                        <div className="stat-badge">{creator.cardCount || 0}</div>
-                      </div>
+                  {cardAnalytics?.topCreators?.length > 0 ? 
+                    cardAnalytics.topCreators.slice(0, 5).map((creator, index) => (
+                      <div key={creator._id} className="user-item">
+                        <div className="user-rank">#{index + 1}</div>
+                        <div className="user-avatar">
+                          {creator.name?.charAt(0).toUpperCase() || creator.email?.charAt(0).toUpperCase() || 'U'}
                     </div>
-                  ))}
+                        <div className="user-info">
+                          <h4>{creator.name || creator.email || 'Unknown User'}</h4>
+                          <span>{creator.cardCount || 0} cards created</span>
+                          {creator.lastCardCreated && (
+                            <small>Last: {new Date(creator.lastCardCreated).toLocaleDateString()}</small>
+                          )}
+                </div>
+                        <div className="user-stats">
+                          <div className="stat-badge">{creator.cardCount || 0}</div>
+                          <div className="stat-types">{creator.cardTypes?.length || 0} types</div>
+                  </div>
+                </div>
+                    )) : (
+                      <div className="no-data">
+                        <p>No card creators found</p>
+                      </div>
+                    )
+                  }
                 </div>
               </div>
             </div>
@@ -618,12 +657,12 @@ ${userDetails.spaceText}`);
               <div className="admin-filters">
                 <div className="admin-filter-group">
                   <FilterIcon />
-                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="admin-select">
-                    <option value="createdAt">Sort by: Created Date</option>
-                    <option value="lastLogin">Sort by: Last Login</option>
-                    <option value="cardCount">Sort by: Card Count</option>
-                    <option value="name">Sort by: Name</option>
-                  </select>
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="admin-select">
+                  <option value="createdAt">Sort by: Created Date</option>
+                  <option value="lastLogin">Sort by: Last Login</option>
+                  <option value="cardCount">Sort by: Card Count</option>
+                  <option value="name">Sort by: Name</option>
+                </select>
                 </div>
                 
                 <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className="admin-select">
@@ -745,11 +784,11 @@ ${userDetails.spaceText}`);
                   }}
                 >
                   <ChevronLeftIcon />
-                  Previous
-                </button>
+                Previous
+              </button>
                 <span className="admin-pagination-pages">
                   Page {users.currentPage} of {users.totalPages}
-                </span>
+              </span>
                 <button 
                   className="admin-pagination-btn" 
                   disabled={users.currentPage >= users.totalPages}
@@ -759,7 +798,7 @@ ${userDetails.spaceText}`);
                 >
                   Next
                   <ChevronRightIcon />
-                </button>
+              </button>
               </div>
             </div>
           </div>
@@ -835,13 +874,13 @@ ${userDetails.spaceText}`);
                     <div key={creator._id} className="activity-item">
                       <div className="activity-avatar card">
                         <CardIcon />
-                      </div>
+                    </div>
                       <div className="activity-details">
                         <p><strong>User {creator._id.slice(-8)}</strong> created <strong>{creator.cardCount}</strong> cards</p>
                         <small>Last card: {creator.lastCardCreated ? new Date(creator.lastCardCreated).toLocaleDateString() : 'Unknown'}</small>
-                      </div>
                     </div>
-                  ))}
+                  </div>
+                ))}
                 </div>
               </div>
 
@@ -876,29 +915,282 @@ ${userDetails.spaceText}`);
         {/* Trends Tab */}
         {activeTab === 'trends' && (
           <div className="tab-content">
-            <div className="admin-placeholder">
-              <TrendingUpIcon />
-              <h3>Analytics Trends</h3>
-              <p>Advanced trend analysis and visualization coming soon. This section will include:</p>
-              <div className="admin-placeholder-features">
-                <div className="admin-feature-item">
-                  <BarChartIcon />
-                  <span>User registration trends over time</span>
-                </div>
-                <div className="admin-feature-item">
-                  <TrendingUpIcon />
-                  <span>Card creation velocity analysis</span>
-                </div>
-                <div className="admin-feature-item">
-                  <LinkIcon />
-                  <span>Connection pattern evolution</span>
-                </div>
-                <div className="admin-feature-item">
-                  <UsersIcon />
-                  <span>User engagement metrics</span>
+            {trendsLoading ? (
+              <div className="admin-loading">
+                <SpinnerIcon />
+                <p>Loading trends analytics...</p>
+              </div>
+            ) : trendsData ? (
+              <>
+                {/* Trends Controls */}
+                <div className="admin-controls">
+                  <div className="admin-filters">
+                    <div className="admin-filter-group">
+                      <BarChartIcon />
+                      <select 
+                        value={timeRange} 
+                        onChange={(e) => setTimeRange(e.target.value)} 
+                        className="admin-select"
+                      >
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="90d">Last 90 Days</option>
+                        <option value="1y">Last Year</option>
+                      </select>
+                    </div>
+                    <div className="admin-info-text">
+                      Analysis Quality: <span className={`quality-${trendsData.summary?.analysisQuality || 'low'}`}>
+                        {trendsData.summary?.analysisQuality?.toUpperCase() || 'LOW'}
+                      </span>
+                    </div>
                 </div>
               </div>
+              
+                {/* Growth Rate Insights */}
+                <div className="admin-stats-grid">
+                  <div className="admin-stat-card primary">
+                    <div className="admin-stat-icon">
+                      <UsersIcon />
+                </div>
+                    <div className="admin-stat-info">
+                      <h3>User Growth</h3>
+                      <p className="admin-stat-value">{trendsData.insights?.userGrowthRate || 0}%</p>
+                      <span className={`admin-stat-change ${trendsData.insights?.userGrowthRate >= 0 ? 'positive' : 'negative'}`}>
+                        {trendsData.insights?.userGrowthRate >= 0 ? <ArrowUpIcon /> : <ArrowDownIcon />}
+                        Week over week
+                      </span>
+              </div>
             </div>
+
+                  <div className="admin-stat-card success">
+                    <div className="admin-stat-icon">
+                      <CardIcon />
+          </div>
+                    <div className="admin-stat-info">
+                      <h3>Card Growth</h3>
+                      <p className="admin-stat-value">{trendsData.insights?.cardGrowthRate || 0}%</p>
+                      <span className={`admin-stat-change ${trendsData.insights?.cardGrowthRate >= 0 ? 'positive' : 'negative'}`}>
+                        {trendsData.insights?.cardGrowthRate >= 0 ? <ArrowUpIcon /> : <ArrowDownIcon />}
+                        Week over week
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="admin-stat-card info">
+                    <div className="admin-stat-icon">
+                      <LinkIcon />
+                    </div>
+                    <div className="admin-stat-info">
+                      <h3>Connection Growth</h3>
+                      <p className="admin-stat-value">{trendsData.insights?.connectionGrowthRate || 0}%</p>
+                      <span className={`admin-stat-change ${trendsData.insights?.connectionGrowthRate >= 0 ? 'positive' : 'negative'}`}>
+                        {trendsData.insights?.connectionGrowthRate >= 0 ? <ArrowUpIcon /> : <ArrowDownIcon />}
+                        Week over week
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="admin-stat-card warning">
+                    <div className="admin-stat-icon">
+                      <TrendingUpIcon />
+                    </div>
+                    <div className="admin-stat-info">
+                      <h3>Activity Rate</h3>
+                      <p className="admin-stat-value">{trendsData.insights?.engagement?.activityRate || 0}%</p>
+                      <span className="admin-stat-change">
+                        Active users ratio
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Time Series Visualizations */}
+                <div className="admin-dashboard-grid">
+                  <div className="trends-chart-section">
+                    <h2>
+                      <BarChartIcon />
+                      User Registration Trends
+                    </h2>
+                    <div className="trends-chart">
+                      <div className="chart-header">
+                        <div className="chart-stats">
+                          <div className="chart-stat">
+                            <span className="stat-label">Total New Users</span>
+                            <span className="stat-value">{trendsData.insights?.engagement?.newUsers || 0}</span>
+                          </div>
+                          <div className="chart-stat">
+                            <span className="stat-label">Daily Average</span>
+                            <span className="stat-value">
+                              {Math.round((trendsData.insights?.engagement?.newUsers || 0) / 
+                                (timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365) * 100) / 100}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="simple-chart">
+                        {trendsData.series?.users?.length > 0 ? (
+                          <div className="chart-bars">
+                            {trendsData.series.users.slice(-15).map((point, index) => (
+                              <div key={index} className="chart-bar-container">
+                                <div 
+                                  className="chart-bar users"
+                                  style={{
+                                    height: `${Math.max((point.value / Math.max(...trendsData.series.users.map(p => p.value), 1)) * 100, 2)}%`
+                                  }}
+                                  title={`${point.date}: ${point.value} users`}
+                                />
+                                <span className="chart-label">{point.date.slice(-5)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="no-chart-data">No user registration data available</div>
+        )}
+      </div>
+    </div>
+                  </div>
+
+                  <div className="trends-chart-section">
+                    <h2>
+                      <CardIcon />
+                      Card Creation Velocity
+                    </h2>
+                    <div className="trends-chart">
+                      <div className="chart-header">
+                        <div className="chart-stats">
+                          <div className="chart-stat">
+                            <span className="stat-label">Cards per Day</span>
+                            <span className="stat-value">{trendsData.insights?.velocity?.avgCardsPerDay || 0}</span>
+                          </div>
+                          <div className="chart-stat">
+                            <span className="stat-label">Peak Day</span>
+                            <span className="stat-value">
+                              {trendsData.insights?.velocity?.peakDay?.count || 0} cards
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="simple-chart">
+                        {trendsData.series?.cards?.length > 0 ? (
+                          <div className="chart-bars">
+                            {trendsData.series.cards.slice(-15).map((point, index) => (
+                              <div key={index} className="chart-bar-container">
+                                <div 
+                                  className="chart-bar cards"
+                                  style={{
+                                    height: `${Math.max((point.value / Math.max(...trendsData.series.cards.map(p => p.value), 1)) * 100, 2)}%`
+                                  }}
+                                  title={`${point.date}: ${point.value} cards`}
+                                />
+                                <span className="chart-label">{point.date.slice(-5)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="no-chart-data">No card creation data available</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Secondary Charts */}
+                <div className="admin-dashboard-grid">
+                  <div className="trends-chart-section">
+                    <h2>
+                      <LinkIcon />
+                      Space Creation Patterns
+                    </h2>
+                    <div className="trends-chart">
+                      <div className="simple-chart">
+                        {trendsData.series?.spaces?.length > 0 ? (
+                          <div className="chart-bars">
+                            {trendsData.series.spaces.slice(-15).map((point, index) => (
+                              <div key={index} className="chart-bar-container">
+                                <div 
+                                  className="chart-bar spaces"
+                                  style={{
+                                    height: `${Math.max((point.value / Math.max(...trendsData.series.spaces.map(p => p.value), 1)) * 100, 2)}%`
+                                  }}
+                                  title={`${point.date}: ${point.value} spaces (${point.publicSpaces} public, ${point.privateSpaces} private)`}
+                                />
+                                <span className="chart-label">{point.date.slice(-5)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="no-chart-data">No space creation data available</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="trends-chart-section">
+                    <h2>
+                      <TrendingUpIcon />
+                      Connection Network Growth
+                    </h2>
+                    <div className="trends-chart">
+                      <div className="simple-chart">
+                        {trendsData.series?.connections?.length > 0 ? (
+                          <div className="chart-bars">
+                            {trendsData.series.connections.slice(-15).map((point, index) => (
+                              <div key={index} className="chart-bar-container">
+                                <div 
+                                  className="chart-bar connections"
+                                  style={{
+                                    height: `${Math.max((point.value / Math.max(...trendsData.series.connections.map(p => p.value), 1)) * 100, 2)}%`
+                                  }}
+                                  title={`${point.date}: ${point.value} connections`}
+                                />
+                                <span className="chart-label">{point.date.slice(-5)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="no-chart-data">No connection data available</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Engagement Insights */}
+                <div className="activity-section">
+                  <h2>
+                    <UsersIcon />
+                    User Engagement Insights
+                  </h2>
+                  <div className="engagement-stats">
+                    <div className="engagement-stat">
+                      <h4>Total Users</h4>
+                      <span className="stat-value">{trendsData.insights?.engagement?.totalUsers || 0}</span>
+                    </div>
+                    <div className="engagement-stat success">
+                      <h4>Active Users</h4>
+                      <span className="stat-value">{trendsData.insights?.engagement?.activeUsers || 0}</span>
+                    </div>
+                    <div className="engagement-stat info">
+                      <h4>New Users</h4>
+                      <span className="stat-value">{trendsData.insights?.engagement?.newUsers || 0}</span>
+                    </div>
+                    <div className="engagement-stat warning">
+                      <h4>Activity Rate</h4>
+                      <span className="stat-value">{trendsData.insights?.engagement?.activityRate || 0}%</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="admin-placeholder">
+                <WarningIcon />
+                <h3>No Trends Data Available</h3>
+                <p>Unable to load trends analytics. Please try refreshing or check your connection.</p>
+                <button className="admin-btn primary" onClick={fetchTrendsData}>
+                  Retry Loading
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
