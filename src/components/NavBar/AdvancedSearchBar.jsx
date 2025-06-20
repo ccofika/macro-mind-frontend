@@ -285,7 +285,10 @@ const AdvancedSearchBar = () => {
           placeholder={`Search ${searchMode === 'current' ? 'current canvas' : 'all spaces'}...`}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            handleKeyDown(e);
+          }}
           onFocus={() => {
             if (searchResults.length > 0) {
               setIsDropdownVisible(true);

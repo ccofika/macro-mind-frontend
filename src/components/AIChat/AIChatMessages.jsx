@@ -44,6 +44,7 @@ const AIChatMessages = () => {
   };
 
   const handleEditKeyPress = (e, messageId) => {
+    e.stopPropagation(); // Prevent keyboard shortcuts while editing
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSaveEdit(messageId);

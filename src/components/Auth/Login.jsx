@@ -41,6 +41,7 @@ const Login = () => {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
               placeholder="you@mebit.io"
               required
             />
@@ -53,6 +54,7 @@ const Login = () => {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
               placeholder="Your password"
               required
             />

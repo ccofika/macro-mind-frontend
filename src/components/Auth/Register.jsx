@@ -56,6 +56,7 @@ const Register = () => {
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
               placeholder="Your name"
               required
             />
@@ -68,6 +69,7 @@ const Register = () => {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
               placeholder="you@mebit.io"
               required
             />
@@ -80,6 +82,7 @@ const Register = () => {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
               placeholder="Choose a password"
               required
             />
@@ -92,6 +95,7 @@ const Register = () => {
               id="confirmPassword"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
               placeholder="Confirm your password"
               required
             />

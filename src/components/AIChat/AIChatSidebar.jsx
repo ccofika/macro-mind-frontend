@@ -70,6 +70,7 @@ const AIChatSidebar = () => {
 
   // Handle key press in edit input
   const handleEditKeyPress = (e, chatId) => {
+    e.stopPropagation(); // Prevent keyboard shortcuts while editing
     if (e.key === 'Enter') {
       handleSaveTitle(chatId);
     } else if (e.key === 'Escape') {
@@ -167,6 +168,7 @@ const AIChatSidebar = () => {
                 placeholder="Search conversations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
               />
               {searchQuery && (
                 <button

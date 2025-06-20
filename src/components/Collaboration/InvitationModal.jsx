@@ -110,6 +110,7 @@ const InvitationModal = ({ isOpen, onClose, space, onInvitationSent }) => {
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
                 placeholder="Enter user's email address"
                 disabled={isLoading}
                 required
@@ -122,6 +123,7 @@ const InvitationModal = ({ isOpen, onClose, space, onInvitationSent }) => {
                 id="role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
                 disabled={isLoading}
               >
                 <option value="viewer">Viewer - Can view and comment</option>
@@ -135,6 +137,7 @@ const InvitationModal = ({ isOpen, onClose, space, onInvitationSent }) => {
                 id="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
                 placeholder="Add a personal message to the invitation..."
                 rows="3"
                 maxLength="500"

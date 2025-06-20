@@ -386,6 +386,7 @@ const CollaborationPanel = () => {
                         placeholder="Space name"
                         value={newSpaceName}
                         onChange={(e) => setNewSpaceName(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
                         autoFocus
                         required
                       />
@@ -454,6 +455,7 @@ const CollaborationPanel = () => {
                                 type="text"
                                 value={editingSpace.name}
                                 onChange={(e) => setEditingSpace({...editingSpace, name: e.target.value})}
+                                onKeyDown={(e) => e.stopPropagation()}
                                 autoFocus
                                 required
                               />
@@ -523,8 +525,8 @@ const CollaborationPanel = () => {
                             </div>
                             
                             <div className="space-actions">
-                              {/* Only show invite button for public spaces */}
-                              {space.isPublic && (
+                              {/* Show invite button for public spaces except the main public space */}
+                              {space.isPublic && space.name !== 'Public Space' && space.name !== 'General' && space.name !== 'Main' && (
                                 <button 
                                   className="action-button invite"
                                   onClick={() => handleInviteToSpace(space)}

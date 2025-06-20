@@ -57,7 +57,10 @@ const AIInput = ({ cardId }) => {
             onChange={(e) => setInput(e.target.value)}
             onClick={handleInputClick}
             onMouseDown={handleInputMouseDown}
-            onKeyDown={handleInputKeyDown}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              handleInputKeyDown(e);
+            }}
             disabled={loading}
           />
           <button 

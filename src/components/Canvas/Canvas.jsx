@@ -13,6 +13,7 @@ import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import { useZoomAndPan } from '../../hooks/useZoomAndPan';
+import { isInputFieldActive } from '../../utils/keyboardUtils';
 import CursorTrail from '../Collaboration/CursorTrail';
 import CollaborationPanel from '../Collaboration/CollaborationPanel';
 import CardLock from '../Collaboration/CardLock';
@@ -134,6 +135,30 @@ const Canvas = () => {
   // Listen for keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Skip shortcuts if any input field is active OR if event originated from an input
+      const eventFromInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) ||
+                           e.target.isContentEditable ||
+                           e.target.contentEditable === 'true' ||
+                           e.target.classList.contains('search-input') ||
+                           e.target.classList.contains('ai-input') ||
+                           e.target.classList.contains('text-input') ||
+                           e.target.classList.contains('card-title-input') ||
+                           e.target.classList.contains('content-textarea') ||
+                           e.target.closest('.search-input-container') ||
+                           e.target.closest('.ai-input-container') ||
+                           e.target.closest('.ai-chat-input') ||
+                           e.target.closest('.link-editor') ||
+                           e.target.closest('.collaboration-panel input') ||
+                           e.target.closest('.collaboration-panel textarea') ||
+                           e.target.closest('.edit-space-form') ||
+                           e.target.closest('.create-space-form') ||
+                           e.target.closest('.form-group') ||
+                           e.target.closest('.navbar-dropdown-content input');
+      
+      if (isInputFieldActive() || eventFromInput) {
+        return;
+      }
+      
       if (e.key === 'c') {
         setConnectMode(prev => !prev);
       }
@@ -159,8 +184,8 @@ const Canvas = () => {
       }
     };
     
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // Reset connection state when toggling connect mode

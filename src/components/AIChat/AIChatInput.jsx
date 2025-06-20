@@ -290,7 +290,13 @@ const AIChatInput = () => {
             placeholder="Ask me anything... (Ctrl+V to paste images)"
             value={draft}
             onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
+            onKeyPress={(e) => {
+              e.stopPropagation();
+              handleKeyPress(e);
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+            }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}

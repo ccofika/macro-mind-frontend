@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useCards } from '../context/CardContext';
 import { useCanvas } from '../context/CanvasContext';
+import { isInputFieldActive } from '../utils/keyboardUtils';
 
 export const useKeyboardShortcuts = (canvasRef) => {
   const { 
@@ -17,8 +18,27 @@ export const useKeyboardShortcuts = (canvasRef) => {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Skip shortcuts if inputs are focused
-      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+      // Skip shortcuts if any input field is active OR if event originated from an input
+      const eventFromInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) ||
+                           e.target.isContentEditable ||
+                           e.target.contentEditable === 'true' ||
+                           e.target.classList.contains('search-input') ||
+                           e.target.classList.contains('ai-input') ||
+                           e.target.classList.contains('text-input') ||
+                           e.target.classList.contains('card-title-input') ||
+                           e.target.classList.contains('content-textarea') ||
+                           e.target.closest('.search-input-container') ||
+                           e.target.closest('.ai-input-container') ||
+                           e.target.closest('.ai-chat-input') ||
+                           e.target.closest('.link-editor') ||
+                           e.target.closest('.collaboration-panel input') ||
+                           e.target.closest('.collaboration-panel textarea') ||
+                           e.target.closest('.edit-space-form') ||
+                           e.target.closest('.create-space-form') ||
+                           e.target.closest('.form-group') ||
+                           e.target.closest('.navbar-dropdown-content input');
+      
+      if (isInputFieldActive() || eventFromInput) {
         return;
       }
       
@@ -76,10 +96,10 @@ export const useKeyboardShortcuts = (canvasRef) => {
       }
     };
     
-    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
     
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [
     selectedCardIds, 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isInputFieldActive } from '../../utils/keyboardUtils';
 import './KeyboardShortcutsHelp.css';
 
 const KeyboardShortcutsHelp = () => {
@@ -7,6 +8,11 @@ const KeyboardShortcutsHelp = () => {
   // Toggle visibility with '?' key
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Skip shortcuts if any input field is active
+      if (isInputFieldActive()) {
+        return;
+      }
+      
       if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
         setIsVisible(prev => !prev);
       }
@@ -17,8 +23,8 @@ const KeyboardShortcutsHelp = () => {
       }
     };
     
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isVisible]);
   
   // Hide after a timeout when first loaded

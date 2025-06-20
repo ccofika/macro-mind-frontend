@@ -2,40 +2,85 @@ import React, { useState, useRef, useEffect, useContext } from 'react';
 import './NavBar.css';
 import AdvancedSearchBar from './AdvancedSearchBar';
 import LinkEditor from './LinkEditor';
+import CategoryManager from './CategoryManager';
 import ActionBar from '../ActionBar/ActionBar';
 import AuthContext from '../../context/AuthContext';
+import { 
+  getUserNavPreferences, 
+  updateNavCategories, 
+  addNavLink, 
+  updateNavLink, 
+  deleteNavLink 
+} from '../../services/userService';
 
 const NavBar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeCategory, setActiveCategory] = useState(null);
   const [showLinkEditor, setShowLinkEditor] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [editingLink, setEditingLink] = useState(null);
-  const [categoryLinks, setCategoryLinks] = useState({
-    stake: [],
-    crypto: [],
-    documents: [],
-    excel: []
-  });
+  const [categories, setCategories] = useState([]);
+  const [links, setLinks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [stakePagesDomain, setStakePagesDomain] = useState('com');
+  const [showStakeMoreDomains, setShowStakeMoreDomains] = useState(false);
+  const [showDomainDropdown, setShowDomainDropdown] = useState(false);
   const navRef = useRef(null);
   const timeoutRef = useRef(null);
   const { currentUser, logout } = useContext(AuthContext);
   
-  // Load saved links on component mount
-  useEffect(() => {
-    const savedLinks = localStorage.getItem('navLinks');
-    if (savedLinks) {
-      try {
-        setCategoryLinks(JSON.parse(savedLinks));
-      } catch (e) {
-        console.error('Failed to parse saved links', e);
-      }
-    }
-  }, []);
+  // Stake domains configuration
+  const stakeDomainsConfig = {
+    'com': { url: 'stake.com', label: '.com' },
+    'bet': { url: 'stake.bet', label: '.bet' },
+    'ac': { url: 'stake.ac', label: '.ac' },
+    'games': { url: 'stake.games', label: '.games' },
+    'stakeru8.com': { url: 'stakeru8.com', label: 'stakeru8.com' },
+    // More domains for "view more" section
+    'pet': { url: 'stake.pet', label: '.pet' },
+    'stake1001.com': { url: 'stake1001.com', label: 'stake1001.com' },
+    'stake1002.com': { url: 'stake1002.com', label: 'stake1002.com' },
+    'stake1003.com': { url: 'stake1003.com', label: 'stake1003.com' },
+    'stake1021.com': { url: 'stake1021.com', label: 'stake1021.com' },
+    'stake1022.com': { url: 'stake1022.com', label: 'stake1022.com' },
+    'mba': { url: 'stake.mba', label: '.mba' },
+    'jp': { url: 'stake.jp', label: '.jp' },
+    'bz': { url: 'stake.bz', label: '.bz' },
+    'staketr.com': { url: 'staketr.com', label: 'staketr.com' },
+    'ceo': { url: 'stake.ceo', label: '.ceo' },
+    'krd': { url: 'stake.krd', label: '.krd' }
+  };
   
-  // Save links when they change
+  const primaryDomains = ['com', 'bet', 'ac', 'games', 'stakeru8.com'];
+  const moreDomains = ['pet', 'stake1001.com', 'stake1002.com', 'stake1003.com', 'stake1021.com', 'stake1022.com', 'mba', 'jp', 'bz', 'staketr.com', 'ceo', 'krd'];
+  
+  // Load user navigation preferences from backend
   useEffect(() => {
-    localStorage.setItem('navLinks', JSON.stringify(categoryLinks));
-  }, [categoryLinks]);
+    if (currentUser) {
+      loadNavPreferences();
+    }
+  }, [currentUser]);
+  
+  const loadNavPreferences = async () => {
+    try {
+      setLoading(true);
+      const preferences = await getUserNavPreferences();
+      setCategories(preferences.categories || []);
+      setLinks(preferences.links || []);
+    } catch (error) {
+      console.error('Error loading nav preferences:', error);
+      // Fallback to default categories if backend fails
+      setCategories([
+        { id: 'stake', name: 'Stake Pages', icon: 'document', isDefault: true },
+        { id: 'crypto', name: 'Crypto Explorers', icon: 'link', isDefault: true },
+        { id: 'documents', name: 'Documents', icon: 'document', isDefault: true },
+        { id: 'excel', name: 'Excel Tables', icon: 'grid', isDefault: true }
+      ]);
+      setLinks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Handle manual expand/collapse
   const toggleNavBar = () => {
@@ -50,9 +95,14 @@ const NavBar = () => {
   
   const handleMouseLeave = () => {
     clearTimeout(timeoutRef.current);
+    // Don't auto-close if modal windows are open
+    if (showLinkEditor || showCategoryManager || showStakeMoreDomains || showDomainDropdown) {
+      return;
+    }
     timeoutRef.current = setTimeout(() => {
       setIsExpanded(false);
       setShowLinkEditor(false);
+      setShowDomainDropdown(false);
     }, 500); // 500ms delay before collapsing
   };
   
@@ -64,16 +114,69 @@ const NavBar = () => {
       }
     };
   }, []);
+
+  // ESC key handler for closing More Domains panel
+  useEffect(() => {
+    const handleEscKey = (e) => {
+      if (e.key === 'Escape' && showStakeMoreDomains) {
+        setShowStakeMoreDomains(false);
+      }
+    };
+
+    if (showStakeMoreDomains) {
+      document.addEventListener('keydown', handleEscKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [showStakeMoreDomains]);
+
+  // Click outside handler for domain dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (showDomainDropdown && !e.target.closest('.custom-domain-select')) {
+        setShowDomainDropdown(false);
+      }
+    };
+
+    if (showDomainDropdown) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showDomainDropdown]);
+
+
   
   // Handle clicking on navigation item
-  const handleNavItemClick = (item) => {
+  const handleNavItemClick = (item, categoryId) => {
+    let finalUrl = item.url;
+    
+    // Special handling for Stake Pages domain switching
+    if (categoryId === 'stake' && stakePagesDomain !== 'com') {
+      const selectedDomainConfig = stakeDomainsConfig[stakePagesDomain];
+      const originalDomainConfig = stakeDomainsConfig['com'];
+      
+      if (selectedDomainConfig && originalDomainConfig) {
+        // Replace the original domain with the selected domain
+        // This handles both stake.com -> stake.bet and stake.com -> stakeru8.com
+        finalUrl = item.url.replace(originalDomainConfig.url, selectedDomainConfig.url);
+      }
+    }
+    
     if (item.action === 'copy') {
-      navigator.clipboard.writeText(item.url)
+      navigator.clipboard.writeText(finalUrl)
         .then(() => {
           // Show temporary toast or indicator
           const toast = document.createElement('div');
           toast.className = 'copy-toast';
-          toast.textContent = 'Link copied!';
+          const domainText = categoryId === 'stake' && stakePagesDomain !== 'com' 
+            ? `with ${stakeDomainsConfig[stakePagesDomain]?.label}` 
+            : '';
+          toast.textContent = `Link copied! ${domainText}`;
           document.body.appendChild(toast);
           
           setTimeout(() => {
@@ -81,59 +184,127 @@ const NavBar = () => {
           }, 2000);
         });
     } else if (item.action === 'open') {
-      window.open(item.url, '_blank');
+      window.open(finalUrl, '_blank');
     }
   };
   
   // Add new link
-  const addLink = (category, linkData) => {
-    setCategoryLinks(prev => ({
-      ...prev,
-      [category]: [...prev[category], { 
-        ...linkData,
-        id: Date.now().toString()
-      }]
-    }));
-    setShowLinkEditor(false);
+  const handleAddLink = async (categoryId, linkData) => {
+    try {
+      const response = await addNavLink({ ...linkData, categoryId });
+      await loadNavPreferences(); // Reload to get updated data
+      setShowLinkEditor(false);
+      // Optionally close dropdown after a delay when modal closes
+      if (!showCategoryManager && !showStakeMoreDomains) {
+        timeoutRef.current = setTimeout(() => {
+          setIsExpanded(false);
+        }, 2000); // Give user 2 seconds to interact with dropdown again
+      }
+    } catch (error) {
+      console.error('Error adding link:', error);
+      alert('Failed to add link. Please try again.');
+    }
   };
   
   // Edit existing link
-  const updateLink = (category, linkId, linkData) => {
-    setCategoryLinks(prev => ({
-      ...prev,
-      [category]: prev[category].map(link => 
-        link.id === linkId ? { ...link, ...linkData } : link
-      )
-    }));
-    setShowLinkEditor(false);
-    setEditingLink(null);
+  const handleUpdateLink = async (linkId, linkData) => {
+    try {
+      await updateNavLink(linkId, linkData);
+      await loadNavPreferences(); // Reload to get updated data
+      setShowLinkEditor(false);
+      setEditingLink(null);
+      // Optionally close dropdown after a delay when modal closes
+      if (!showCategoryManager && !showStakeMoreDomains) {
+        timeoutRef.current = setTimeout(() => {
+          setIsExpanded(false);
+        }, 2000); // Give user 2 seconds to interact with dropdown again
+      }
+    } catch (error) {
+      console.error('Error updating link:', error);
+      alert('Failed to update link. Please try again.');
+    }
   };
   
   // Delete link
-  const deleteLink = (category, linkId) => {
-    setCategoryLinks(prev => ({
-      ...prev,
-      [category]: prev[category].filter(link => link.id !== linkId)
-    }));
+  const handleDeleteLink = async (linkId) => {
+    if (!window.confirm('Are you sure you want to delete this link?')) {
+      return;
+    }
+    
+    try {
+      await deleteNavLink(linkId);
+      await loadNavPreferences(); // Reload to get updated data
+    } catch (error) {
+      console.error('Error deleting link:', error);
+      alert('Failed to delete link. Please try again.');
+    }
   };
   
   // Start editing a link
-  const startEditingLink = (category, link) => {
-    setEditingLink({ category, link });
+  const startEditingLink = (link) => {
+    setEditingLink(link);
     setShowLinkEditor(true);
+    // Clear any pending close timeout when opening modal
+    clearTimeout(timeoutRef.current);
   };
   
   // Add new link button
-  const handleAddLink = (category) => {
-    setActiveCategory(category);
-    setEditingLink({ category, link: null });
+  const handleAddLinkClick = (categoryId) => {
+    setActiveCategory(categoryId);
+    setEditingLink(null);
     setShowLinkEditor(true);
+    // Clear any pending close timeout when opening modal
+    clearTimeout(timeoutRef.current);
   };
 
   // Handle logout
   const handleLogout = (e) => {
     e.stopPropagation();
     logout();
+  };
+
+  // Update categories
+  const handleUpdateCategories = async (updatedCategories) => {
+    try {
+      await updateNavCategories(updatedCategories);
+      await loadNavPreferences(); // Reload to get updated data
+      setShowCategoryManager(false);
+      // Optionally close dropdown after a delay when modal closes
+      if (!showLinkEditor && !showStakeMoreDomains) {
+        timeoutRef.current = setTimeout(() => {
+          setIsExpanded(false);
+        }, 2000); // Give user 2 seconds to interact with dropdown again
+      }
+    } catch (error) {
+      console.error('Error updating categories:', error);
+      throw error; // Re-throw to let CategoryManager handle the error
+    }
+  };
+
+  // Get icon display for category
+  const getIconDisplay = (iconValue) => {
+    const iconMap = {
+      'document': '📄',
+      'link': '🔗',
+      'grid': '⚏',
+      'folder': '📁',
+      'star': '⭐',
+      'tag': '🏷️',
+      'bookmark': '🔖',
+      'tool': '🔧'
+    };
+    return iconMap[iconValue] || '📁';
+  };
+
+  // Get links for a specific category
+  const getCategoryLinks = (categoryId) => {
+    return links.filter(link => link.categoryId === categoryId);
+  };
+
+  // Prevent keyboard shortcuts when typing in inputs
+  const handleDropdownKeyDown = (e) => {
+    // Stop propagation to prevent shortcuts
+    e.stopPropagation();
   };
 
   return (
@@ -183,6 +354,7 @@ const NavBar = () => {
           ref={navRef}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
+          onKeyDown={handleDropdownKeyDown} // Prevent shortcuts in entire dropdown
         >
           {/* User info section */}
           <div className="user-info">
@@ -216,609 +388,303 @@ const NavBar = () => {
             </button>
           </div>
           
-          {showLinkEditor && (
-            <LinkEditor 
-              category={editingLink?.category} 
-              link={editingLink?.link}
-              onSave={(category, linkData) => {
-                if (editingLink?.link) {
-                  updateLink(category, editingLink.link.id, linkData);
-                } else {
-                  addLink(category, linkData);
-                }
-              }}
-              onCancel={() => {
-                setShowLinkEditor(false);
-                setEditingLink(null);
-              }}
-            />
-          )}
+          {/* Categories Management Button */}
+          <div className="categories-management">
+                         <button 
+               className="manage-categories-button"
+               onClick={() => {
+                 setShowCategoryManager(true);
+                 // Clear any pending close timeout when opening modal
+                 clearTimeout(timeoutRef.current);
+               }}
+             >
+              <svg 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              Manage Categories
+            </button>
+          </div>
           
-          {!showLinkEditor && (
+          {/* Navigation categories */}
+          {loading ? (
+            <div className="navbar-loading">
+              <div className="loading-spinner">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                </svg>
+              </div>
+              <span>Loading categories...</span>
+            </div>
+          ) : (
             <div className="navbar-categories">
-              <div 
-                className={`navbar-category ${activeCategory === 'stake' ? 'active' : ''}`}
-                onClick={() => setActiveCategory(activeCategory === 'stake' ? null : 'stake')}
-              >
-                <div className="category-header">
-                  <svg 
-                    className="category-icon" 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  >
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14,2 14,8 20,8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10,9 9,9 8,9"></polyline>
-                  </svg>
-                  <span className="category-label">Stake Pages</span>
-                  <svg 
-                    className={`category-toggle ${activeCategory === 'stake' ? 'rotated' : ''}`}
-                    width="14" 
-                    height="14" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="6,9 12,15 18,9"></polyline>
-                  </svg>
-                </div>
-                
-                {activeCategory === 'stake' && (
-                  <div className="category-items">
-                    {categoryLinks.stake.map(item => (
-                      <div key={item.id} className="nav-item-container">
-                        <div 
-                          className="nav-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleNavItemClick(item);
-                          }}
-                        >
-                          <span className="item-bullet">•</span>
-                          {item.name}
-                          <svg 
-                            className="item-action-icon"
-                            width="14" 
-                            height="14" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2" 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round"
-                          >
-                            {item.action === 'copy' ? (
-                              <>
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                <path d="m5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                              </>
-                            ) : (
-                              <>
-                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                              </>
-                            )}
-                          </svg>
-                        </div>
-                        <div className="nav-item-actions">
+              {categories.map(category => (
+                <div 
+                  key={category.id}
+                  className={`navbar-category ${activeCategory === category.id ? 'active' : ''}`}
+                  onClick={() => setActiveCategory(activeCategory === category.id ? null : category.id)}
+                >
+                  <div className="category-header">
+                    <span className="category-icon">{getIconDisplay(category.icon)}</span>
+                    <span className="category-label">{category.name}</span>
+                    
+                    {/* Domain selector for Stake Pages */}
+                    {category.id === 'stake' && (
+                      <div className="stake-domain-selector">
+                        <div className="custom-domain-select">
                           <button
-                            className="nav-item-edit"
+                            className="domain-select-button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              startEditingLink('stake', item);
+                              setShowDomainDropdown(!showDomainDropdown);
                             }}
+                            onKeyDown={handleDropdownKeyDown}
                           >
+                            <span>{stakeDomainsConfig[stakePagesDomain]?.label}</span>
                             <svg 
+                              className={`dropdown-arrow ${showDomainDropdown ? 'rotated' : ''}`}
                               width="12" 
                               height="12" 
                               viewBox="0 0 24 24" 
                               fill="none" 
                               stroke="currentColor" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
+                              strokeWidth="2"
                             >
-                              <path d="m18 2 4 4-6 6H4v-4l10-6z"></path>
-                              <path d="m14.5 5.5-3 3"></path>
+                              <polyline points="6,9 12,15 18,9"></polyline>
                             </svg>
                           </button>
-                          <button
-                            className="nav-item-delete"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteLink('stake', item.id);
-                            }}
-                          >
-                            <svg 
-                              width="12" 
-                              height="12" 
-                              viewBox="0 0 24 24" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
-                            >
-                              <polyline points="3,6 5,6 21,6"></polyline>
-                              <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                          </button>
+                          
+                          {showDomainDropdown && (
+                            <div className="domain-dropdown-menu">
+                              {primaryDomains.map(domain => (
+                                <button
+                                  key={domain}
+                                  className={`domain-option ${stakePagesDomain === domain ? 'active' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setStakePagesDomain(domain);
+                                    setShowDomainDropdown(false);
+                                  }}
+                                >
+                                  {stakeDomainsConfig[domain].label}
+                                </button>
+                              ))}
+                              <button
+                                className="domain-option view-more"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowStakeMoreDomains(true);
+                                  setShowDomainDropdown(false);
+                                  // Clear any pending close timeout when opening modal
+                                  clearTimeout(timeoutRef.current);
+                                }}
+                              >
+                                View More →
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    ))}
-                    <button 
-                      className="add-link-button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddLink('stake');
-                      }}
+                    )}
+                    
+                    <svg 
+                      className={`category-toggle ${activeCategory === category.id ? 'rotated' : ''}`}
+                      width="14" 
+                      height="14" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
                     >
-                      <svg 
-                        width="14" 
-                        height="14" 
-                        viewBox="0 0 24 24" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round"
-                      >
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                      </svg>
-                      Add Link
-                    </button>
+                      <polyline points="6,9 12,15 18,9"></polyline>
+                    </svg>
                   </div>
-                )}
-              </div>
-              
-              <div 
-                className={`navbar-category ${activeCategory === 'crypto' ? 'active' : ''}`}
-                onClick={() => setActiveCategory(activeCategory === 'crypto' ? null : 'crypto')}
-              >
-                <div className="category-header">
-                  <svg 
-                    className="category-icon" 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  >
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                  </svg>
-                  <span className="category-label">Crypto Explorers</span>
-                  <svg 
-                    className={`category-toggle ${activeCategory === 'crypto' ? 'rotated' : ''}`}
-                    width="14" 
-                    height="14" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="6,9 12,15 18,9"></polyline>
-                  </svg>
-                </div>
-                
-                {activeCategory === 'crypto' && (
-                  <div className="category-items">
-                    {categoryLinks.crypto.map(item => (
-                      <div key={item.id} className="nav-item-container">
-                        <div 
-                          className="nav-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleNavItemClick(item);
-                          }}
+                  
+                  {activeCategory === category.id && (
+                    <div className="category-items">
+                      {getCategoryLinks(category.id).map(link => (
+                        <div key={link.id} className="nav-item-container">
+                          <div 
+                            className="nav-item"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleNavItemClick(link, category.id);
+                            }}
+                          >
+                            <span className="item-bullet">•</span>
+                            <span className="item-name">{link.name}</span>
+                            <div className="nav-item-actions">
+                              <button
+                                className="nav-item-edit"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startEditingLink(link);
+                                }}
+                                title="Edit link"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                              </button>
+                              <button
+                                className="nav-item-delete"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteLink(link.id);
+                                }}
+                                title="Delete link"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="3,6 5,6 21,6"></polyline>
+                                  <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"></path>
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Add link button */}
+                      <button 
+                        className="add-link-button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddLinkClick(category.id);
+                        }}
+                      >
+                        <svg 
+                          width="16" 
+                          height="16" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round"
                         >
-                          <span className="item-bullet">•</span>
-                          {item.name}
-                          <svg 
-                            className="item-action-icon"
-                            width="14" 
-                            height="14" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2" 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round"
-                          >
-                            {item.action === 'copy' ? (
-                              <>
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                <path d="m5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                              </>
-                            ) : (
-                              <>
-                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                              </>
-                            )}
-                          </svg>
-                        </div>
-                        <div className="nav-item-actions">
-                          <button
-                            className="nav-item-edit"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditingLink('crypto', item);
-                            }}
-                          >
-                            <svg 
-                              width="12" 
-                              height="12" 
-                              viewBox="0 0 24 24" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
-                            >
-                              <path d="m18 2 4 4-6 6H4v-4l10-6z"></path>
-                              <path d="m14.5 5.5-3 3"></path>
-                            </svg>
-                          </button>
-                          <button
-                            className="nav-item-delete"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteLink('crypto', item.id);
-                            }}
-                          >
-                            <svg 
-                              width="12" 
-                              height="12" 
-                              viewBox="0 0 24 24" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
-                            >
-                              <polyline points="3,6 5,6 21,6"></polyline>
-                              <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    <button 
-                      className="add-link-button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddLink('crypto');
-                      }}
-                    >
-                      <svg 
-                        width="14" 
-                        height="14" 
-                        viewBox="0 0 24 24" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round"
-                      >
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                      </svg>
-                      Add Link
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              <div 
-                className={`navbar-category ${activeCategory === 'documents' ? 'active' : ''}`}
-                onClick={() => setActiveCategory(activeCategory === 'documents' ? null : 'documents')}
-              >
-                <div className="category-header">
-                  <svg 
-                    className="category-icon" 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  >
-                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-                    <polyline points="13,2 13,9 20,9"></polyline>
-                  </svg>
-                  <span className="category-label">Documents</span>
-                  <svg 
-                    className={`category-toggle ${activeCategory === 'documents' ? 'rotated' : ''}`}
-                    width="14" 
-                    height="14" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="6,9 12,15 18,9"></polyline>
-                  </svg>
+                          <line x1="12" y1="5" x2="12" y2="19"></line>
+                          <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Add Link
+                      </button>
+                    </div>
+                  )}
                 </div>
-                
-                {activeCategory === 'documents' && (
-                  <div className="category-items">
-                    {categoryLinks.documents.map(item => (
-                      <div key={item.id} className="nav-item-container">
-                        <div 
-                          className="nav-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleNavItemClick(item);
-                          }}
-                        >
-                          <span className="item-bullet">•</span>
-                          {item.name}
-                          <svg 
-                            className="item-action-icon"
-                            width="14" 
-                            height="14" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2" 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round"
-                          >
-                            {item.action === 'copy' ? (
-                              <>
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                <path d="m5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                              </>
-                            ) : (
-                              <>
-                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                              </>
-                            )}
-                          </svg>
-                        </div>
-                        <div className="nav-item-actions">
-                          <button
-                            className="nav-item-edit"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditingLink('documents', item);
-                            }}
-                          >
-                            <svg 
-                              width="12" 
-                              height="12" 
-                              viewBox="0 0 24 24" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
-                            >
-                              <path d="m18 2 4 4-6 6H4v-4l10-6z"></path>
-                              <path d="m14.5 5.5-3 3"></path>
-                            </svg>
-                          </button>
-                          <button
-                            className="nav-item-delete"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteLink('documents', item.id);
-                            }}
-                          >
-                            <svg 
-                              width="12" 
-                              height="12" 
-                              viewBox="0 0 24 24" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
-                            >
-                              <polyline points="3,6 5,6 21,6"></polyline>
-                              <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    <button 
-                      className="add-link-button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddLink('documents');
-                      }}
-                    >
-                      <svg 
-                        width="14" 
-                        height="14" 
-                        viewBox="0 0 24 24" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round"
-                      >
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                      </svg>
-                      Add Link
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              <div 
-                className={`navbar-category ${activeCategory === 'excel' ? 'active' : ''}`}
-                onClick={() => setActiveCategory(activeCategory === 'excel' ? null : 'excel')}
-              >
-                <div className="category-header">
-                  <svg 
-                    className="category-icon" 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="14" width="7" height="7"></rect>
-                    <rect x="3" y="14" width="7" height="7"></rect>
-                  </svg>
-                  <span className="category-label">Excel Tables</span>
-                  <svg 
-                    className={`category-toggle ${activeCategory === 'excel' ? 'rotated' : ''}`}
-                    width="14" 
-                    height="14" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="6,9 12,15 18,9"></polyline>
-                  </svg>
-                </div>
-                
-                {activeCategory === 'excel' && (
-                  <div className="category-items">
-                    {categoryLinks.excel.map(item => (
-                      <div key={item.id} className="nav-item-container">
-                        <div 
-                          className="nav-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleNavItemClick(item);
-                          }}
-                        >
-                          <span className="item-bullet">•</span>
-                          {item.name}
-                          <svg 
-                            className="item-action-icon"
-                            width="14" 
-                            height="14" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2" 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round"
-                          >
-                            {item.action === 'copy' ? (
-                              <>
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                <path d="m5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                              </>
-                            ) : (
-                              <>
-                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                              </>
-                            )}
-                          </svg>
-                        </div>
-                        <div className="nav-item-actions">
-                          <button
-                            className="nav-item-edit"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditingLink('excel', item);
-                            }}
-                          >
-                            <svg 
-                              width="12" 
-                              height="12" 
-                              viewBox="0 0 24 24" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
-                            >
-                              <path d="m18 2 4 4-6 6H4v-4l10-6z"></path>
-                              <path d="m14.5 5.5-3 3"></path>
-                            </svg>
-                          </button>
-                          <button
-                            className="nav-item-delete"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteLink('excel', item.id);
-                            }}
-                          >
-                            <svg 
-                              width="12" 
-                              height="12" 
-                              viewBox="0 0 24 24" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              strokeWidth="2" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round"
-                            >
-                              <polyline points="3,6 5,6 21,6"></polyline>
-                              <path d="m19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    <button 
-                      className="add-link-button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddLink('excel');
-                      }}
-                    >
-                      <svg 
-                        width="14" 
-                        height="14" 
-                        viewBox="0 0 24 24" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round"
-                      >
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                      </svg>
-                      Add Link
-                    </button>
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
           )}
         </div>
+      )}
+
+      {/* Stake More Domains Panel */}
+      {showStakeMoreDomains && (
+        <div 
+          className="stake-more-domains-overlay"
+          onClick={(e) => {
+            // Close if clicking on overlay (not on panel)
+            if (e.target === e.currentTarget) {
+              setShowStakeMoreDomains(false);
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="domains-panel-title"
+        >
+          <div 
+            className="stake-more-domains-panel"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="stake-more-domains-header">
+              <h3 id="domains-panel-title">All Stake Domains</h3>
+              <button 
+                className="close-button" 
+                onClick={() => setShowStakeMoreDomains(false)}
+                autoFocus
+                aria-label="Close domains panel"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            
+            <div className="stake-more-domains-content">
+              <div className="domains-grid">
+                {[...primaryDomains, ...moreDomains].map(domain => (
+                  <button
+                    key={domain}
+                    className={`domain-button ${stakePagesDomain === domain ? 'active' : ''}`}
+                    onClick={() => {
+                      setStakePagesDomain(domain);
+                      setShowStakeMoreDomains(false);
+                    }}
+                  >
+                    <span className="domain-label">{stakeDomainsConfig[domain].label}</span>
+                    <span className="domain-url">{stakeDomainsConfig[domain].url}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="stake-more-domains-footer">
+              <div className="current-selection">
+                Current: <strong>{stakeDomainsConfig[stakePagesDomain]?.label}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link Editor Modal */}
+      {showLinkEditor && (
+        <LinkEditor
+          categoryId={activeCategory}
+          link={editingLink}
+          onSave={editingLink ? 
+            (categoryId, linkData) => handleUpdateLink(editingLink.id, linkData) :
+            handleAddLink
+          }
+                               onCancel={() => {
+            setShowLinkEditor(false);
+            setEditingLink(null);
+            // Optionally close dropdown after a delay when modal closes
+            if (!showCategoryManager && !showStakeMoreDomains) {
+              timeoutRef.current = setTimeout(() => {
+                 setIsExpanded(false);
+               }, 2000); // Give user 2 seconds to interact with dropdown again
+             }
+           }}
+        />
+      )}
+
+      {/* Category Manager Modal */}
+      {showCategoryManager && (
+        <CategoryManager
+          categories={categories}
+          onUpdateCategories={handleUpdateCategories}
+                               onClose={() => {
+            setShowCategoryManager(false);
+            // Optionally close dropdown after a delay when modal closes
+            if (!showLinkEditor && !showStakeMoreDomains) {
+              timeoutRef.current = setTimeout(() => {
+                setIsExpanded(false);
+              }, 2000); // Give user 2 seconds to interact with dropdown again
+            }
+          }}
+        />
       )}
     </>
   );

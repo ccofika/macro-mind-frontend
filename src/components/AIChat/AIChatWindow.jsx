@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useContext } from 'react';
 import { useAIChat } from '../../context/AIChatContext';
 import { useCards } from '../../context/CardContext';
 import AuthContext from '../../context/AuthContext';
+import { isInputFieldActive } from '../../utils/keyboardUtils';
 import AIChatSidebar from './AIChatSidebar';
 import AIChatMessages from './AIChatMessages';
 import AIChatInput from './AIChatInput';
@@ -87,7 +88,8 @@ const AIChatWindow = () => {
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
+      // Only handle ESC key if no input field is active
+      if (e.key === 'Escape' && isOpen && !isInputFieldActive()) {
         closeChat();
       }
     };
