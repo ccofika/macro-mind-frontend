@@ -11,6 +11,11 @@ import Register from './components/Auth/Register';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import AIChatWindow from './components/AIChat/AIChatWindow';
 
+// Admin Components
+import AdminLogin from './components/Admin/AdminLogin';
+import AdminDashboard from './components/Admin/AdminDashboard';
+import AdminProtectedRoute from './components/Admin/AdminProtectedRoute';
+
 // Context Providers
 import { AuthProvider } from './context/AuthContext';
 import { CanvasProvider } from './context/CanvasContext';
@@ -31,6 +36,12 @@ function App() {
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              
+              {/* Admin Routes */}
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route element={<AdminProtectedRoute />}>
+                <Route path="/admin/dashboard/*" element={<AdminDashboard />} />
+              </Route>
               
               {/* Protected Routes */}
               <Route element={<ProtectedRoute />}>
