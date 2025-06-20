@@ -187,7 +187,15 @@ const AdminOverview = () => {
     );
   }
 
-  const { platformStats, trends, distributions, aiAnalytics, topUsers, recentActivity, systemHealth } = overviewData || {};
+  const { 
+    platformStats = {}, 
+    trends = {}, 
+    distributions = {}, 
+    aiAnalytics = {}, 
+    topUsers = [], 
+    recentActivity = { users: [], cards: [] }, 
+    systemHealth = {} 
+  } = overviewData || {};
 
   return (
     <div className="admin-page">
@@ -230,10 +238,10 @@ const AdminOverview = () => {
               </div>
               <div className="admin-stat-info">
                 <h3>Total Users</h3>
-                <p className="admin-stat-value">{platformStats?.totalUsers || 0}</p>
+                <p className="admin-stat-value">{typeof platformStats?.totalUsers === 'number' ? platformStats.totalUsers : 0}</p>
                 <span className="admin-stat-change positive">
                   <ArrowUpIcon />
-                  +{platformStats?.newUsersThisPeriod || 0} this period
+                  +{typeof platformStats?.newUsersThisPeriod === 'number' ? platformStats.newUsersThisPeriod : (Array.isArray(platformStats?.newUsersThisPeriod) ? platformStats.newUsersThisPeriod.length : 0)} this period
                 </span>
               </div>
             </div>
@@ -244,9 +252,9 @@ const AdminOverview = () => {
               </div>
               <div className="admin-stat-info">
                 <h3>Active Users</h3>
-                <p className="admin-stat-value">{platformStats?.activeUsers || 0}</p>
+                <p className="admin-stat-value">{typeof platformStats?.activeUsers === 'number' ? platformStats.activeUsers : 0}</p>
                 <span className="admin-stat-change">
-                  {Math.round((platformStats?.activeUsers / platformStats?.totalUsers) * 100 || 0)}% of total
+                  {Math.round(((typeof platformStats?.activeUsers === 'number' ? platformStats.activeUsers : 0) / (typeof platformStats?.totalUsers === 'number' ? platformStats.totalUsers : 1)) * 100 || 0)}% of total
                 </span>
               </div>
             </div>
@@ -257,10 +265,10 @@ const AdminOverview = () => {
               </div>
               <div className="admin-stat-info">
                 <h3>Total Cards</h3>
-                <p className="admin-stat-value">{platformStats?.totalCards || 0}</p>
+                <p className="admin-stat-value">{typeof platformStats?.totalCards === 'number' ? platformStats.totalCards : 0}</p>
                 <span className="admin-stat-change positive">
                   <ArrowUpIcon />
-                  +{platformStats?.newCardsThisPeriod || 0} this period
+                  +{typeof platformStats?.newCardsThisPeriod === 'number' ? platformStats.newCardsThisPeriod : 0} this period
                 </span>
               </div>
             </div>
@@ -271,9 +279,9 @@ const AdminOverview = () => {
               </div>
               <div className="admin-stat-info">
                 <h3>Active Spaces</h3>
-                <p className="admin-stat-value">{platformStats?.totalSpaces || 0}</p>
+                <p className="admin-stat-value">{typeof platformStats?.totalSpaces === 'number' ? platformStats.totalSpaces : 0}</p>
                 <span className="admin-stat-change">
-                  {platformStats?.spacesWithActivity || 0} with recent activity
+                  {typeof platformStats?.spacesWithActivity === 'number' ? platformStats.spacesWithActivity : 0} with recent activity
                 </span>
               </div>
             </div>
@@ -284,10 +292,10 @@ const AdminOverview = () => {
               </div>
               <div className="admin-stat-info">
                 <h3>AI Conversations</h3>
-                <p className="admin-stat-value">{aiAnalytics?.totalConversations || 0}</p>
+                <p className="admin-stat-value">{typeof aiAnalytics?.totalConversations === 'number' ? aiAnalytics.totalConversations : 0}</p>
                 <span className="admin-stat-change positive">
                   <ArrowUpIcon />
-                  +{aiAnalytics?.newConversationsThisPeriod || 0} this period
+                  +{typeof aiAnalytics?.newConversationsThisPeriod === 'number' ? aiAnalytics.newConversationsThisPeriod : 0} this period
                 </span>
               </div>
             </div>
@@ -298,9 +306,9 @@ const AdminOverview = () => {
               </div>
               <div className="admin-stat-info">
                 <h3>Connections</h3>
-                <p className="admin-stat-value">{platformStats?.totalConnections || 0}</p>
+                <p className="admin-stat-value">{typeof platformStats?.totalConnections === 'number' ? platformStats.totalConnections : 0}</p>
                 <span className="admin-stat-change">
-                  Avg {Math.round(platformStats?.avgConnectionsPerCard || 0)} per card
+                  Avg {Math.round(typeof platformStats?.avgConnectionsPerCard === 'number' ? platformStats.avgConnectionsPerCard : 0)} per card
                 </span>
               </div>
             </div>
@@ -357,30 +365,41 @@ const AdminOverview = () => {
             <h2>Recent Activity</h2>
             <div className="activity-tabs">
               <div className="activity-list">
-                {recentActivity?.users?.slice(0, 5).map((user, index) => (
-                  <div key={user._id} className="activity-item">
-                    <div className="activity-avatar">
-                      {user.name?.charAt(0).toUpperCase() || 'U'}
+                {recentActivity.users.slice(0, 5).map((user, index) => {
+                  if (!user || typeof user !== 'object') return null;
+                  return (
+                    <div key={user._id || `user-${index}`} className="activity-item">
+                      <div className="activity-avatar">
+                        {user.name?.charAt(0).toUpperCase() || 'U'}
+                      </div>
+                      <div className="activity-details">
+                        <p>{user.lastCardCreated ? 'Recent card activity' : 'User registration'}</p>
+                        <span>{user.name || 'Unknown'} ({user.email || 'No email'})</span>
+                        <small>
+                          {user.lastCardCreated 
+                            ? `Latest card: ${new Date(user.lastCardCreated).toLocaleDateString()}`
+                            : user.createdAt ? `Joined: ${new Date(user.createdAt).toLocaleDateString()}` : 'No date available'
+                          }
+                        </small>
+                      </div>
                     </div>
-                    <div className="activity-details">
-                      <p>New user registration</p>
-                      <span>{user.name} ({user.email})</span>
-                      <small>{new Date(user.createdAt).toLocaleDateString()}</small>
+                  );
+                })}
+                {recentActivity.cards.slice(0, 3).map((card, index) => {
+                  if (!card || typeof card !== 'object') return null;
+                  return (
+                    <div key={card._id || `card-${index}`} className="activity-item">
+                      <div className="activity-avatar card">
+                        <CardIcon />
+                      </div>
+                      <div className="activity-details">
+                        <p>New card created</p>
+                        <span>{card.title || 'Untitled Card'}</span>
+                        <small>by {typeof card.userId === 'object' ? card.userId?.name : card.userId || 'Unknown User'}</small>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {recentActivity?.cards?.slice(0, 3).map((card, index) => (
-                  <div key={card._id} className="activity-item">
-                    <div className="activity-avatar card">
-                      <CardIcon />
-                    </div>
-                    <div className="activity-details">
-                      <p>New card created</p>
-                      <span>{card.title || 'Untitled Card'}</span>
-                      <small>by {card.userId?.name || 'Unknown User'}</small>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -389,21 +408,24 @@ const AdminOverview = () => {
           <div className="top-users-section">
             <h2>Most Active Users</h2>
             <div className="user-list">
-              {topUsers?.slice(0, 10).map((user, index) => (
-                <div key={user._id} className="user-item">
-                  <div className="user-rank">#{index + 1}</div>
-                  <div className="user-avatar">
-                    {user.name?.charAt(0).toUpperCase() || 'U'}
+              {topUsers.slice(0, 10).map((user, index) => {
+                if (!user || typeof user !== 'object') return null;
+                return (
+                  <div key={user._id || `top-user-${index}`} className="user-item">
+                    <div className="user-rank">#{index + 1}</div>
+                    <div className="user-avatar">
+                      {user.name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                    <div className="user-info">
+                      <h4>{user.name || 'Unknown User'}</h4>
+                      <span>{user.cardCount || 0} cards</span>
+                    </div>
+                    <div className="user-stats">
+                      <span className="stat-badge">{user.totalCards || user.cardCount || 0}</span>
+                    </div>
                   </div>
-                  <div className="user-info">
-                    <h4>{user.name || 'Unknown User'}</h4>
-                    <span>{user.cardCount || 0} cards</span>
-                  </div>
-                  <div className="user-stats">
-                    <span className="stat-badge">{user.totalCards || user.cardCount || 0}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
