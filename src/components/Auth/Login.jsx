@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import AuthContext from '../../context/AuthContext';
@@ -7,7 +7,35 @@ import './Auth.css';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, googleLogin, error, setError } = useContext(AuthContext);
+  const [suspendedMessage, setSuspendedMessage] = useState('');
+  const [lockedMessage, setLockedMessage] = useState('');
+  const { login, googleLogin, error, setError, isSuspended } = useContext(AuthContext);
+
+  // Check for suspended/locked status on component mount
+  useEffect(() => {
+    const accountSuspended = localStorage.getItem('accountSuspended');
+    const accountLocked = localStorage.getItem('accountLocked');
+    const lockedUntil = localStorage.getItem('lockedUntil');
+
+    if (accountSuspended === 'true') {
+      setSuspendedMessage('Your account has been suspended. Please contact administrator.');
+      localStorage.removeItem('accountSuspended');
+    }
+
+    if (accountLocked === 'true' && lockedUntil) {
+      const unlockTime = new Date(lockedUntil);
+      const now = new Date();
+      
+      if (now < unlockTime) {
+        const remainingTime = Math.ceil((unlockTime - now) / (1000 * 60)); // minutes
+        setLockedMessage(`Account temporarily locked due to failed login attempts. Try again in ${remainingTime} minutes.`);
+      } else {
+        // Lock has expired, clear it
+        localStorage.removeItem('accountLocked');
+        localStorage.removeItem('lockedUntil');
+      }
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,7 +59,21 @@ const Login = () => {
       <div className="auth-card">
         <h2>Login to MacroMind</h2>
         
-        {error && <div className="auth-error">{error}</div>}
+        {suspendedMessage && (
+          <div className="auth-error auth-suspended">
+            <strong>⚠️ Account Suspended</strong>
+            <p>{suspendedMessage}</p>
+          </div>
+        )}
+        
+        {lockedMessage && (
+          <div className="auth-error auth-locked">
+            <strong>🔒 Account Locked</strong>
+            <p>{lockedMessage}</p>
+          </div>
+        )}
+        
+        {error && !suspendedMessage && !lockedMessage && <div className="auth-error">{error}</div>}
         
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">

@@ -4,9 +4,7 @@ import './AdminPages.css';
 
 const AdminUsersCards = () => {
   const [overviewData, setOverviewData] = useState(null);
-  const [trendsData, setTrendsData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [trendsLoading, setTrendsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [timeRange, setTimeRange] = useState('30d');
   const [refreshing, setRefreshing] = useState(false);
@@ -20,12 +18,6 @@ const AdminUsersCards = () => {
   useEffect(() => {
     fetchData();
   }, [timeRange, sortBy, sortOrder, filterBy, currentPage]);
-
-  useEffect(() => {
-    if (activeTab === 'trends') {
-      fetchTrendsData();
-    }
-  }, [activeTab, timeRange]);
 
   const fetchData = async () => {
     try {
@@ -54,30 +46,9 @@ const AdminUsersCards = () => {
     }
   };
 
-  const fetchTrendsData = async () => {
-    try {
-      setTrendsLoading(true);
-      const response = await adminService.getUsersCardsTrends({ timeRange });
-      if (response.success) {
-        setTrendsData(response.data);
-      } else {
-        setError(response.message || 'Failed to load trends data');
-      }
-    } catch (err) {
-      console.error('Trends analytics error:', err);
-      setError(err.message || 'Error loading trends data');
-    } finally {
-      setTrendsLoading(false);
-    }
-  };
-
   const handleRefresh = async () => {
     setRefreshing(true);
-    if (activeTab === 'trends') {
-      await fetchTrendsData();
-    } else {
-      await fetchData();
-    }
+    await fetchData();
   };
 
   const handleSearch = (e) => {
@@ -544,7 +515,7 @@ ${userDetails.spaceText}`);
                   <div className="collab-stat">
                     <h4>Average Members per Space</h4>
                     <span className="stat-value">{Math.round(collaborationPatterns.avgMembersPerSpace || 0)}</span>
-                    </div>
+                  </div>
                   <div className="collab-stat">
                     <h4>Public Spaces</h4>
                     <span className="stat-value">{collaborationPatterns.publicSpaceCount || 0}</span>
@@ -552,13 +523,13 @@ ${userDetails.spaceText}`);
                   <div className="collab-stat">
                     <h4>Private Spaces</h4>
                     <span className="stat-value">{collaborationPatterns.privateSpaceCount || 0}</span>
-                  </div>
+                    </div>
                   <div className="collab-stat">
                     <h4>Total Workspaces</h4>
                     <span className="stat-value">{collaborationPatterns.totalSpaces || 0}</span>
                   </div>
+                </div>
               </div>
-            </div>
 
               <div className="top-users-section">
                 <h2>
@@ -566,31 +537,21 @@ ${userDetails.spaceText}`);
                   Most Active Card Creators
                 </h2>
                 <div className="user-list">
-                  {cardAnalytics?.topCreators?.length > 0 ? 
-                    cardAnalytics.topCreators.slice(0, 5).map((creator, index) => (
-                      <div key={creator._id} className="user-item">
-                        <div className="user-rank">#{index + 1}</div>
-                        <div className="user-avatar">
-                          {creator.name?.charAt(0).toUpperCase() || creator.email?.charAt(0).toUpperCase() || 'U'}
-                    </div>
-                        <div className="user-info">
-                          <h4>{creator.name || creator.email || 'Unknown User'}</h4>
-                          <span>{creator.cardCount || 0} cards created</span>
-                          {creator.lastCardCreated && (
-                            <small>Last: {new Date(creator.lastCardCreated).toLocaleDateString()}</small>
-                          )}
-                </div>
-                        <div className="user-stats">
-                          <div className="stat-badge">{creator.cardCount || 0}</div>
-                          <div className="stat-types">{creator.cardTypes?.length || 0} types</div>
-                  </div>
-                </div>
-                    )) : (
-                      <div className="no-data">
-                        <p>No card creators found</p>
+                  {cardAnalytics.slice && cardAnalytics.slice(0, 5).map((creator, index) => (
+                    <div key={creator._id} className="user-item">
+                      <div className="user-rank">#{index + 1}</div>
+                      <div className="user-avatar">
+                        {creator.name?.charAt(0).toUpperCase() || 'U'}
                       </div>
-                    )
-                  }
+                      <div className="user-info">
+                        <h4>{creator.name || 'Unknown User'}</h4>
+                        <span>{creator.cardCount || 0} cards created</span>
+                      </div>
+                      <div className="user-stats">
+                        <div className="stat-badge">{creator.cardCount || 0}</div>
+            </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -603,7 +564,7 @@ ${userDetails.spaceText}`);
               </h2>
               <div className="action-grid">
                 <div className="admin-action-card" onClick={() => setActiveTab('users')}>
-                  <div className="action-icon">
+                  <div className="admin-action-icon">
                     <UsersIcon />
                   </div>
                   <div className="action-content">
@@ -740,7 +701,7 @@ ${userDetails.spaceText}`);
                         </span>
                       </td>
                       <td>
-                        <div className="action-buttons">
+                        <div className="admin-action-buttons">
                           <button 
                             className="action-btn view" 
                             title="View Details"
@@ -874,13 +835,13 @@ ${userDetails.spaceText}`);
                     <div key={creator._id} className="activity-item">
                       <div className="activity-avatar card">
                         <CardIcon />
-                    </div>
+                      </div>
                       <div className="activity-details">
                         <p><strong>User {creator._id.slice(-8)}</strong> created <strong>{creator.cardCount}</strong> cards</p>
                         <small>Last card: {creator.lastCardCreated ? new Date(creator.lastCardCreated).toLocaleDateString() : 'Unknown'}</small>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
                 </div>
               </div>
 
@@ -901,7 +862,7 @@ ${userDetails.spaceText}`);
                   <div className="collab-stat">
                     <h4>Connection Rate</h4>
                     <span className="stat-value">{Math.round((connectionPatterns.activeConnectors / users.totalCount) * 100 || 0)}%</span>
-                  </div>
+                    </div>
                   <div className="collab-stat">
                     <h4>Total Network Nodes</h4>
                     <span className="stat-value">{(cardAnalytics.totalCards || 0) + (connectionPatterns.totalConnections || 0)}</span>
@@ -915,282 +876,256 @@ ${userDetails.spaceText}`);
         {/* Trends Tab */}
         {activeTab === 'trends' && (
           <div className="tab-content">
-            {trendsLoading ? (
-              <div className="admin-loading">
-                <SpinnerIcon />
-                <p>Loading trends analytics...</p>
-              </div>
-            ) : trendsData ? (
-              <>
-                {/* Trends Controls */}
-                <div className="admin-controls">
-                  <div className="admin-filters">
-                    <div className="admin-filter-group">
-                      <BarChartIcon />
-                      <select 
-                        value={timeRange} 
-                        onChange={(e) => setTimeRange(e.target.value)} 
-                        className="admin-select"
-                      >
-                        <option value="7d">Last 7 Days</option>
-                        <option value="30d">Last 30 Days</option>
-                        <option value="90d">Last 90 Days</option>
-                        <option value="1y">Last Year</option>
-                      </select>
-                    </div>
-                    <div className="admin-info-text">
-                      Analysis Quality: <span className={`quality-${trendsData.summary?.analysisQuality || 'low'}`}>
-                        {trendsData.summary?.analysisQuality?.toUpperCase() || 'LOW'}
-                      </span>
-                    </div>
+            {/* Trends Overview Stats */}
+            <div className="admin-stats-grid">
+              <div className="admin-stat-card primary">
+                <div className="admin-stat-icon">
+                  <TrendingUpIcon />
+                </div>
+                <div className="admin-stat-info">
+                  <h3>Growth Rate</h3>
+                  <p className="admin-stat-value">
+                    {Math.round(((cardAnalytics.newUsersThisPeriod / Math.max(users.totalCount - cardAnalytics.newUsersThisPeriod, 1)) * 100) || 0)}%
+                  </p>
+                  <span className="admin-stat-change positive">
+                    <ArrowUpIcon />
+                    User growth this period
+                  </span>
                 </div>
               </div>
-              
-                {/* Growth Rate Insights */}
-                <div className="admin-stats-grid">
-                  <div className="admin-stat-card primary">
-                    <div className="admin-stat-icon">
-                      <UsersIcon />
+
+              <div className="admin-stat-card success">
+                <div className="admin-stat-icon">
+                  <CardIcon />
                 </div>
-                    <div className="admin-stat-info">
-                      <h3>User Growth</h3>
-                      <p className="admin-stat-value">{trendsData.insights?.userGrowthRate || 0}%</p>
-                      <span className={`admin-stat-change ${trendsData.insights?.userGrowthRate >= 0 ? 'positive' : 'negative'}`}>
-                        {trendsData.insights?.userGrowthRate >= 0 ? <ArrowUpIcon /> : <ArrowDownIcon />}
-                        Week over week
-                      </span>
+                <div className="admin-stat-info">
+                  <h3>Activity Score</h3>
+                  <p className="admin-stat-value">
+                    {Math.round(((cardAnalytics.newCardsThisPeriod / Math.max(cardAnalytics.totalCards - cardAnalytics.newCardsThisPeriod, 1)) * 100) || 0)}%
+                  </p>
+                  <span className="admin-stat-change positive">
+                    <ArrowUpIcon />
+                    Card creation trend
+                  </span>
+                </div>
+              </div>
+
+              <div className="admin-stat-card info">
+                <div className="admin-stat-icon">
+                  <UsersIcon />
+                </div>
+                <div className="admin-stat-info">
+                  <h3>Engagement Rate</h3>
+                  <p className="admin-stat-value">
+                    {Math.round((cardAnalytics.activeUsers / Math.max(users.totalCount, 1)) * 100 || 0)}%
+                  </p>
+                  <span className="admin-stat-change">
+                    Active users ratio
+                  </span>
+                </div>
+              </div>
+
+              <div className="admin-stat-card warning">
+                <div className="admin-stat-icon">
+                  <LinkIcon />
+                </div>
+                <div className="admin-stat-info">
+                  <h3>Connection Density</h3>
+                  <p className="admin-stat-value">
+                    {Math.round((connectionPatterns.totalConnections / Math.max(cardAnalytics.totalCards, 1)) * 100 || 0)}%
+                  </p>
+                  <span className="admin-stat-change">
+                    Cards with connections
+                  </span>
+                </div>
               </div>
             </div>
 
-                  <div className="admin-stat-card success">
-                    <div className="admin-stat-icon">
-                      <CardIcon />
-          </div>
-                    <div className="admin-stat-info">
-                      <h3>Card Growth</h3>
-                      <p className="admin-stat-value">{trendsData.insights?.cardGrowthRate || 0}%</p>
-                      <span className={`admin-stat-change ${trendsData.insights?.cardGrowthRate >= 0 ? 'positive' : 'negative'}`}>
-                        {trendsData.insights?.cardGrowthRate >= 0 ? <ArrowUpIcon /> : <ArrowDownIcon />}
-                        Week over week
-                      </span>
+            {/* Trends Charts Section */}
+            <div className="admin-dashboard-grid">
+              <div className="trends-chart-section">
+                <h2>
+                  <BarChartIcon />
+                  Platform Growth Overview
+                </h2>
+                <div className="trends-chart">
+                  <div className="chart-header">
+                    <div className="chart-stats">
+                      <div className="chart-stat">
+                        <span className="stat-label">Total Users</span>
+                        <span className="stat-value">{users.totalCount || 0}</span>
+                      </div>
+                      <div className="chart-stat">
+                        <span className="stat-label">Total Cards</span>
+                        <span className="stat-value">{cardAnalytics.totalCards || 0}</span>
+                      </div>
+                      <div className="chart-stat">
+                        <span className="stat-label">Total Spaces</span>
+                        <span className="stat-value">{collaborationPatterns.totalSpaces || 0}</span>
+                      </div>
+                      <div className="chart-stat">
+                        <span className="stat-label">Connections</span>
+                        <span className="stat-value">{connectionPatterns.totalConnections || 0}</span>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="admin-stat-card info">
-                    <div className="admin-stat-icon">
-                      <LinkIcon />
-                    </div>
-                    <div className="admin-stat-info">
-                      <h3>Connection Growth</h3>
-                      <p className="admin-stat-value">{trendsData.insights?.connectionGrowthRate || 0}%</p>
-                      <span className={`admin-stat-change ${trendsData.insights?.connectionGrowthRate >= 0 ? 'positive' : 'negative'}`}>
-                        {trendsData.insights?.connectionGrowthRate >= 0 ? <ArrowUpIcon /> : <ArrowDownIcon />}
-                        Week over week
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="admin-stat-card warning">
-                    <div className="admin-stat-icon">
-                      <TrendingUpIcon />
-                    </div>
-                    <div className="admin-stat-info">
-                      <h3>Activity Rate</h3>
-                      <p className="admin-stat-value">{trendsData.insights?.engagement?.activityRate || 0}%</p>
-                      <span className="admin-stat-change">
-                        Active users ratio
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Time Series Visualizations */}
-                <div className="admin-dashboard-grid">
-                  <div className="trends-chart-section">
-                    <h2>
-                      <BarChartIcon />
-                      User Registration Trends
-                    </h2>
-                    <div className="trends-chart">
-                      <div className="chart-header">
-                        <div className="chart-stats">
-                          <div className="chart-stat">
-                            <span className="stat-label">Total New Users</span>
-                            <span className="stat-value">{trendsData.insights?.engagement?.newUsers || 0}</span>
-                          </div>
-                          <div className="chart-stat">
-                            <span className="stat-label">Daily Average</span>
-                            <span className="stat-value">
-                              {Math.round((trendsData.insights?.engagement?.newUsers || 0) / 
-                                (timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365) * 100) / 100}
-                            </span>
-                          </div>
+                  
+                  <div className="simple-chart">
+                    {(users.totalCount > 0 || cardAnalytics.totalCards > 0 || collaborationPatterns.totalSpaces > 0 || connectionPatterns.totalConnections > 0) ? (
+                      <div className="chart-bars">
+                        <div className="chart-bar-container">
+                          <div 
+                            className="chart-bar users" 
+                            style={{ 
+                              height: `${Math.max((users.totalCount / Math.max(users.totalCount, cardAnalytics.totalCards, collaborationPatterns.totalSpaces, connectionPatterns.totalConnections)) * 100, 5)}%` 
+                            }}
+                          ></div>
+                          <span className="chart-label">Users</span>
+                        </div>
+                        <div className="chart-bar-container">
+                          <div 
+                            className="chart-bar cards" 
+                            style={{ 
+                              height: `${Math.max((cardAnalytics.totalCards / Math.max(users.totalCount, cardAnalytics.totalCards, collaborationPatterns.totalSpaces, connectionPatterns.totalConnections)) * 100, 5)}%` 
+                            }}
+                          ></div>
+                          <span className="chart-label">Cards</span>
+                        </div>
+                        <div className="chart-bar-container">
+                          <div 
+                            className="chart-bar spaces" 
+                            style={{ 
+                              height: `${Math.max((collaborationPatterns.totalSpaces / Math.max(users.totalCount, cardAnalytics.totalCards, collaborationPatterns.totalSpaces, connectionPatterns.totalConnections)) * 100, 5)}%` 
+                            }}
+                          ></div>
+                          <span className="chart-label">Spaces</span>
+                        </div>
+                        <div className="chart-bar-container">
+                          <div 
+                            className="chart-bar connections" 
+                            style={{ 
+                              height: `${Math.max((connectionPatterns.totalConnections / Math.max(users.totalCount, cardAnalytics.totalCards, collaborationPatterns.totalSpaces, connectionPatterns.totalConnections)) * 100, 5)}%` 
+                            }}
+                          ></div>
+                          <span className="chart-label">Connections</span>
                         </div>
                       </div>
-                      <div className="simple-chart">
-                        {trendsData.series?.users?.length > 0 ? (
-                          <div className="chart-bars">
-                            {trendsData.series.users.slice(-15).map((point, index) => (
-                              <div key={index} className="chart-bar-container">
-                                <div 
-                                  className="chart-bar users"
-                                  style={{
-                                    height: `${Math.max((point.value / Math.max(...trendsData.series.users.map(p => p.value), 1)) * 100, 2)}%`
-                                  }}
-                                  title={`${point.date}: ${point.value} users`}
-                                />
-                                <span className="chart-label">{point.date.slice(-5)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="no-chart-data">No user registration data available</div>
-        )}
-      </div>
-    </div>
-                  </div>
-
-                  <div className="trends-chart-section">
-                    <h2>
-                      <CardIcon />
-                      Card Creation Velocity
-                    </h2>
-                    <div className="trends-chart">
-                      <div className="chart-header">
-                        <div className="chart-stats">
-                          <div className="chart-stat">
-                            <span className="stat-label">Cards per Day</span>
-                            <span className="stat-value">{trendsData.insights?.velocity?.avgCardsPerDay || 0}</span>
-                          </div>
-                          <div className="chart-stat">
-                            <span className="stat-label">Peak Day</span>
-                            <span className="stat-value">
-                              {trendsData.insights?.velocity?.peakDay?.count || 0} cards
-                            </span>
-                          </div>
-                        </div>
+                    ) : (
+                      <div className="no-chart-data">
+                        <BarChartIcon />
+                        <p>No data available for visualization</p>
                       </div>
-                      <div className="simple-chart">
-                        {trendsData.series?.cards?.length > 0 ? (
-                          <div className="chart-bars">
-                            {trendsData.series.cards.slice(-15).map((point, index) => (
-                              <div key={index} className="chart-bar-container">
-                                <div 
-                                  className="chart-bar cards"
-                                  style={{
-                                    height: `${Math.max((point.value / Math.max(...trendsData.series.cards.map(p => p.value), 1)) * 100, 2)}%`
-                                  }}
-                                  title={`${point.date}: ${point.value} cards`}
-                                />
-                                <span className="chart-label">{point.date.slice(-5)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="no-chart-data">No card creation data available</div>
-                        )}
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
-
-                {/* Secondary Charts */}
-                <div className="admin-dashboard-grid">
-                  <div className="trends-chart-section">
-                    <h2>
-                      <LinkIcon />
-                      Space Creation Patterns
-                    </h2>
-                    <div className="trends-chart">
-                      <div className="simple-chart">
-                        {trendsData.series?.spaces?.length > 0 ? (
-                          <div className="chart-bars">
-                            {trendsData.series.spaces.slice(-15).map((point, index) => (
-                              <div key={index} className="chart-bar-container">
-                                <div 
-                                  className="chart-bar spaces"
-                                  style={{
-                                    height: `${Math.max((point.value / Math.max(...trendsData.series.spaces.map(p => p.value), 1)) * 100, 2)}%`
-                                  }}
-                                  title={`${point.date}: ${point.value} spaces (${point.publicSpaces} public, ${point.privateSpaces} private)`}
-                                />
-                                <span className="chart-label">{point.date.slice(-5)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="no-chart-data">No space creation data available</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="trends-chart-section">
-                    <h2>
-                      <TrendingUpIcon />
-                      Connection Network Growth
-                    </h2>
-                    <div className="trends-chart">
-                      <div className="simple-chart">
-                        {trendsData.series?.connections?.length > 0 ? (
-                          <div className="chart-bars">
-                            {trendsData.series.connections.slice(-15).map((point, index) => (
-                              <div key={index} className="chart-bar-container">
-                                <div 
-                                  className="chart-bar connections"
-                                  style={{
-                                    height: `${Math.max((point.value / Math.max(...trendsData.series.connections.map(p => p.value), 1)) * 100, 2)}%`
-                                  }}
-                                  title={`${point.date}: ${point.value} connections`}
-                                />
-                                <span className="chart-label">{point.date.slice(-5)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="no-chart-data">No connection data available</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Engagement Insights */}
-                <div className="activity-section">
-                  <h2>
-                    <UsersIcon />
-                    User Engagement Insights
-                  </h2>
-                  <div className="engagement-stats">
-                    <div className="engagement-stat">
-                      <h4>Total Users</h4>
-                      <span className="stat-value">{trendsData.insights?.engagement?.totalUsers || 0}</span>
-                    </div>
-                    <div className="engagement-stat success">
-                      <h4>Active Users</h4>
-                      <span className="stat-value">{trendsData.insights?.engagement?.activeUsers || 0}</span>
-                    </div>
-                    <div className="engagement-stat info">
-                      <h4>New Users</h4>
-                      <span className="stat-value">{trendsData.insights?.engagement?.newUsers || 0}</span>
-                    </div>
-                    <div className="engagement-stat warning">
-                      <h4>Activity Rate</h4>
-                      <span className="stat-value">{trendsData.insights?.engagement?.activityRate || 0}%</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="admin-placeholder">
-                <WarningIcon />
-                <h3>No Trends Data Available</h3>
-                <p>Unable to load trends analytics. Please try refreshing or check your connection.</p>
-                <button className="admin-btn primary" onClick={fetchTrendsData}>
-                  Retry Loading
-                </button>
               </div>
-            )}
+
+              <div className="top-users-section">
+                <h2>
+                  <TrendingUpIcon />
+                  User Engagement Metrics
+                </h2>
+                <div className="engagement-stats">
+                  <div className="engagement-stat success">
+                    <h4>High Activity Users</h4>
+                    <span className="stat-value">
+                      {cardAnalytics.slice ? cardAnalytics.filter(user => user.cardCount > 5).length : 0}
+                    </span>
+                    <small>Created 5+ cards</small>
+                  </div>
+                  <div className="engagement-stat info">
+                    <h4>Moderate Activity</h4>
+                    <span className="stat-value">
+                      {cardAnalytics.slice ? cardAnalytics.filter(user => user.cardCount >= 2 && user.cardCount <= 5).length : 0}
+                    </span>
+                    <small>Created 2-5 cards</small>
+                  </div>
+                  <div className="engagement-stat warning">
+                    <h4>Low Activity</h4>
+                    <span className="stat-value">
+                      {cardAnalytics.slice ? cardAnalytics.filter(user => user.cardCount === 1).length : 0}
+                    </span>
+                    <small>Created 1 card</small>
+                  </div>
+                  <div className="engagement-stat">
+                    <h4>No Activity</h4>
+                    <span className="stat-value">
+                      {Math.max((users.totalCount || 0) - (cardAnalytics.length || 0), 0)}
+                    </span>
+                    <small>No cards created</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Contributors */}
+            <div className="admin-dashboard-grid">
+              <div className="activity-section">
+                <h2>
+                  <UsersIcon />
+                  Top Contributors This Period
+                </h2>
+                <div className="user-list">
+                  {cardAnalytics.slice && cardAnalytics.slice(0, 10).map((creator, index) => (
+                    <div key={creator._id} className="user-item">
+                      <div className="user-rank">#{index + 1}</div>
+                      <div className="user-avatar">
+                        {creator.name?.charAt(0).toUpperCase() || creator._id.slice(-2).toUpperCase()}
+                      </div>
+                      <div className="user-info">
+                        <h4>{creator.name || `User ${creator._id.slice(-8)}`}</h4>
+                        <span>{creator.cardCount || 0} cards created</span>
+                        {creator.lastCardCreated && (
+                          <small>Last: {new Date(creator.lastCardCreated).toLocaleDateString()}</small>
+                        )}
+                      </div>
+                      <div className="user-stats">
+                        <div className="stat-types">
+                          <div className="stat-badge">{creator.cardCount || 0}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {(!cardAnalytics.slice || cardAnalytics.length === 0) && (
+                    <div className="no-data">
+                      <p className="admin-info-text">No card creation data available</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="top-users-section">
+                <h2>
+                  <LinkIcon />
+                  Connection Trends
+                </h2>
+                <div className="collaboration-stats">
+                  <div className="collab-stat">
+                    <h4>Total Network Size</h4>
+                    <span className="stat-value">
+                      {(cardAnalytics.totalCards || 0) + (connectionPatterns.totalConnections || 0)}
+                    </span>
+                  </div>
+                  <div className="collab-stat">
+                    <h4>Connection Ratio</h4>
+                    <span className="stat-value">
+                      {cardAnalytics.totalCards > 0 ? 
+                        Math.round((connectionPatterns.totalConnections / cardAnalytics.totalCards) * 100) / 100 : 0}
+                    </span>
+                  </div>
+                  <div className="collab-stat">
+                    <h4>Active Connectors</h4>
+                    <span className="stat-value">{connectionPatterns.activeConnectors || 0}</span>
+                  </div>
+                  <div className="collab-stat">
+                    <h4>Collaboration Score</h4>
+                    <span className="stat-value">
+                      {Math.round((collaborationPatterns.avgMembersPerSpace || 0) * 10) / 10}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -18,6 +18,7 @@ const AdminUserManagement = () => {
   const [bulkAction, setBulkAction] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const usersPerPage = 20;
 
@@ -40,7 +41,7 @@ const AdminUserManagement = () => {
       
       if (response.success) {
         setUsers(response.data.users);
-        setTotalUsers(response.data.totalCount);
+        setTotalUsers(response.data.pagination.totalCount);
       } else {
         setError(response.message || 'Failed to load users');
       }
@@ -49,12 +50,22 @@ const AdminUserManagement = () => {
       setError('Error loading user data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchUsers();
   };
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
+  };
+
+  const handleSearchSubmit = () => {
     setCurrentPage(1);
+    fetchUsers();
   };
 
   const handleSort = (field) => {
@@ -94,10 +105,16 @@ const AdminUserManagement = () => {
           response = await adminService.activateUser(userId);
           break;
         case 'delete':
+          if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+            return;
+          }
           response = await adminService.deleteUser(userId);
           break;
         case 'resetPassword':
           response = await adminService.resetUserPassword(userId);
+          if (response.success) {
+            alert(`Password reset successfully. Temporary password: ${response.data.temporaryPassword}`);
+          }
           break;
         default:
           return;
@@ -118,29 +135,36 @@ const AdminUserManagement = () => {
   const handleBulkAction = async () => {
     if (!bulkAction || selectedUsers.length === 0) return;
     
-    setConfirmAction(() => async () => {
-      try {
-        const response = await adminService.bulkUserAction(bulkAction, selectedUsers);
-        if (response.success) {
-          fetchUsers();
-          setSelectedUsers([]);
-          setBulkAction('');
-        } else {
-          setError(response.message || `Failed to ${bulkAction} users`);
-        }
-      } catch (err) {
-        console.error(`Bulk ${bulkAction} error:`, err);
-        setError(`Error performing bulk ${bulkAction}`);
-      } finally {
-        setShowConfirmModal(false);
+    const actionText = bulkAction === 'delete' ? 'delete' : bulkAction;
+    if (!window.confirm(`Are you sure you want to ${actionText} ${selectedUsers.length} selected users?`)) {
+      return;
+    }
+    
+    try {
+      const response = await adminService.bulkUserAction(bulkAction, selectedUsers);
+      if (response.success) {
+        fetchUsers();
+        setSelectedUsers([]);
+        setBulkAction('');
+      } else {
+        setError(response.message || `Failed to ${bulkAction} users`);
       }
-    });
-    setShowConfirmModal(true);
+    } catch (err) {
+      console.error(`Bulk ${bulkAction} error:`, err);
+      setError(`Error performing bulk ${bulkAction}`);
+    }
   };
 
-  const viewUserDetails = (user) => {
-    setSelectedUser(user);
-    setShowUserModal(true);
+  const viewUserDetails = async (user) => {
+    try {
+      const response = await adminService.getUserDetails(user._id);
+      if (response.success) {
+        setSelectedUser(response.data);
+        setShowUserModal(true);
+      }
+    } catch (error) {
+      setError('Failed to load user details');
+    }
   };
 
   const exportUsers = (format) => {
@@ -171,13 +195,148 @@ const AdminUserManagement = () => {
     }
   };
 
+  // Professional SVG Icons
+  const SpinnerIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="spinner-icon">
+      <path d="M21 12a9 9 0 11-6.219-8.56"/>
+    </svg>
+  );
+
+  const WarningIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  );
+
+  const RefreshIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="23 4 23 10 17 10"/>
+      <polyline points="1 20 1 14 7 14"/>
+      <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </svg>
+  );
+
+  const UsersIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  );
+
+  const UserPlusIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <line x1="19" y1="8" x2="19" y2="14"/>
+      <line x1="22" y1="11" x2="16" y2="11"/>
+    </svg>
+  );
+
+  const SearchIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="8"/>
+      <path d="m21 21-4.35-4.35"/>
+    </svg>
+  );
+
+  const FilterIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+    </svg>
+  );
+
+  const DownloadIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+  );
+
+  const EyeIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  );
+
+  const EditIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+      <path d="m18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/>
+    </svg>
+  );
+
+  const ShieldIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+  );
+
+  const XIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  );
+
+  const KeyIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="8" cy="8" r="6"/>
+      <path d="m13 13 5 5"/>
+      <path d="m17 17 3 3"/>
+    </svg>
+  );
+
+  const ChevronLeftIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  );
+
+  const ChevronRightIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="9 18 15 12 9 6"/>
+    </svg>
+  );
+
   const totalPages = Math.ceil(totalUsers / usersPerPage);
 
   if (loading && users.length === 0) {
     return (
-      <div className="admin-loading">
-        <i className="fas fa-spinner fa-spin"></i>
-        <p>Loading User Management...</p>
+      <div className="admin-page">
+        <div className="admin-page-header">
+          <h1><UsersIcon /> User Management</h1>
+          <p>Loading user management...</p>
+        </div>
+        <div className="admin-loading">
+          <SpinnerIcon />
+          <p>Loading user data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && users.length === 0) {
+    return (
+      <div className="admin-page">
+        <div className="admin-page-header">
+          <h1><UsersIcon /> User Management</h1>
+          <p>Manage user accounts and permissions</p>
+        </div>
+        <div className="admin-error">
+          <WarningIcon />
+          <h3>Error Loading User Management</h3>
+          <p>{error}</p>
+          <button className="admin-retry-btn" onClick={fetchUsers}>
+            <RefreshIcon />
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -187,338 +346,317 @@ const AdminUserManagement = () => {
       <div className="admin-page-header">
         <div className="header-content">
           <h1>
-            <i className="fas fa-users-cog"></i>
+            <UsersIcon />
             User Management
           </h1>
           <p>Manage user accounts, permissions, and activities</p>
         </div>
         <div className="header-actions">
-          <button className="admin-btn primary" onClick={() => setShowUserModal(true)}>
-            <i className="fas fa-user-plus"></i>
-            Add User
-          </button>
-          <button className="admin-refresh-button" onClick={fetchUsers}>
-            <i className="fas fa-sync-alt"></i>
-            Refresh
+          <button 
+            className="admin-refresh-button" 
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshIcon />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="admin-error-banner">
-          <i className="fas fa-exclamation-triangle"></i>
+        <div className="admin-alert admin-alert-danger">
+          <WarningIcon />
           <span>{error}</span>
-          <button onClick={() => setError('')} className="close-error">
-            <i className="fas fa-times"></i>
+          <button 
+            className="admin-alert-close"
+            onClick={() => setError('')}
+          >
+            <XIcon />
           </button>
         </div>
       )}
 
-      <div className="admin-content">
-        {/* Search and Filters */}
-        <div className="admin-controls">
-          <div className="admin-search-container">
-            <i className="fas fa-search"></i>
-            <input
-              type="text"
-              placeholder="Search users by name, email, or ID..."
-              value={searchTerm}
-              onChange={handleSearch}
-              className="admin-search-input"
-            />
+      {/* Controls */}
+      <div className="admin-controls glass-bg">
+        <div className="admin-search-section">
+          <div className="admin-search-group">
+            <div className="admin-search-input-wrapper">
+              <SearchIcon />
+              <input
+                type="text"
+                placeholder="Search users by name or email..."
+                value={searchTerm}
+                onChange={handleSearch}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearchSubmit()}
+                className="admin-search-input"
+              />
+            </div>
+            <button 
+              className="admin-search-btn"
+              onClick={handleSearchSubmit}
+            >
+              Search
+            </button>
           </div>
-          
+
           <div className="admin-filters">
-            <select value={filterBy} onChange={(e) => setFilterBy(e.target.value)} className="admin-select">
-              <option value="all">All Users</option>
-              <option value="active">Active Users</option>
-              <option value="inactive">Inactive Users</option>
-              <option value="suspended">Suspended Users</option>
-              <option value="new">New Users (Last 7 days)</option>
-            </select>
-            
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="admin-select">
-              <option value="createdAt">Sort by: Created Date</option>
-              <option value="lastLogin">Sort by: Last Login</option>
-              <option value="name">Sort by: Name</option>
-              <option value="email">Sort by: Email</option>
-              <option value="cardCount">Sort by: Card Count</option>
-            </select>
-            
-            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className="admin-select">
-              <option value="desc">Descending</option>
-              <option value="asc">Ascending</option>
-            </select>
+            <div className="admin-filter-group">
+              <FilterIcon />
+              <select
+                value={filterBy}
+                onChange={(e) => setFilterBy(e.target.value)}
+                className="admin-filter-select"
+              >
+                <option value="all">All Users</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="suspended">Suspended</option>
+                <option value="verified">Verified</option>
+                <option value="unverified">Unverified</option>
+              </select>
+            </div>
+
+            <div className="admin-sort-group">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="admin-sort-select"
+              >
+                <option value="createdAt">Join Date</option>
+                <option value="lastLogin">Last Activity</option>
+                <option value="name">Name</option>
+                <option value="email">Email</option>
+              </select>
+              <button
+                className={`admin-sort-order ${sortOrder === 'desc' ? 'desc' : 'asc'}`}
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
+              >
+                {sortOrder === 'desc' ? '↓' : '↑'}
+              </button>
+            </div>
           </div>
-          
-          <div className="admin-actions">
-            <button className="admin-btn secondary" onClick={() => exportUsers('csv')}>
-              <i className="fas fa-file-csv"></i>
+        </div>
+
+        <div className="admin-actions-section">
+          <div className="admin-export-actions">
+            <button 
+              className="admin-export-btn"
+              onClick={() => exportUsers('csv')}
+            >
+              <DownloadIcon />
               Export CSV
             </button>
-            <button className="admin-btn secondary" onClick={() => exportUsers('json')}>
-              <i className="fas fa-file-code"></i>
+            <button 
+              className="admin-export-btn"
+              onClick={() => exportUsers('json')}
+            >
+              <DownloadIcon />
               Export JSON
             </button>
           </div>
-        </div>
 
-        {/* Bulk Actions */}
-        {selectedUsers.length > 0 && (
-          <div className="bulk-actions-bar">
-            <div className="selected-count">
-              <i className="fas fa-check-square"></i>
-              <span>{selectedUsers.length} users selected</span>
-            </div>
-            <div className="bulk-actions">
-              <select 
-                value={bulkAction} 
-                onChange={(e) => setBulkAction(e.target.value)} 
-                className="admin-select"
+          {selectedUsers.length > 0 && (
+            <div className="admin-bulk-actions">
+              <span className="admin-selected-count">
+                {selectedUsers.length} selected
+              </span>
+              <select
+                value={bulkAction}
+                onChange={(e) => setBulkAction(e.target.value)}
+                className="admin-bulk-select"
               >
-                <option value="">Choose action...</option>
-                <option value="activate">Activate Users</option>
-                <option value="suspend">Suspend Users</option>
-                <option value="delete">Delete Users</option>
-                <option value="resetPassword">Reset Passwords</option>
-                <option value="sendEmail">Send Email</option>
+                <option value="">Select Action</option>
+                <option value="activate">Activate</option>
+                <option value="suspend">Suspend</option>
+                <option value="verify">Verify</option>
+                <option value="delete">Delete</option>
               </select>
-              <button 
-                className="admin-btn primary" 
+              <button
+                className="admin-bulk-btn"
                 onClick={handleBulkAction}
                 disabled={!bulkAction}
               >
-                <i className="fas fa-bolt"></i>
                 Apply
               </button>
-              <button 
-                className="admin-btn secondary" 
-                onClick={() => setSelectedUsers([])}
-              >
-                <i className="fas fa-times"></i>
-                Clear
-              </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      </div>
 
-        {/* Users Table */}
-        <div className="users-table-container">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>
+      {/* Users Table */}
+      <div className="admin-table-container glass-bg">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  checked={selectedUsers.length === users.length && users.length > 0}
+                  onChange={handleSelectAll}
+                />
+              </th>
+              <th onClick={() => handleSort('name')} className="sortable">
+                Name {sortBy === 'name' && (sortOrder === 'desc' ? '↓' : '↑')}
+              </th>
+              <th onClick={() => handleSort('email')} className="sortable">
+                Email {sortBy === 'email' && (sortOrder === 'desc' ? '↓' : '↑')}
+              </th>
+              <th>Status</th>
+              <th onClick={() => handleSort('createdAt')} className="sortable">
+                Joined {sortBy === 'createdAt' && (sortOrder === 'desc' ? '↓' : '↑')}
+              </th>
+              <th onClick={() => handleSort('lastLogin')} className="sortable">
+                Last Activity {sortBy === 'lastLogin' && (sortOrder === 'desc' ? '↓' : '↑')}
+              </th>
+              <th>Cards</th>
+              <th>Spaces</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((user) => (
+              <tr key={user._id}>
+                <td>
                   <input
                     type="checkbox"
-                    checked={selectedUsers.length === users.length && users.length > 0}
-                    onChange={handleSelectAll}
+                    checked={selectedUsers.includes(user._id)}
+                    onChange={() => handleUserSelect(user._id)}
                   />
-                </th>
-                <th onClick={() => handleSort('name')} className="sortable">
-                  User
-                  {sortBy === 'name' && (
-                    <i className={`fas fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
-                  )}
-                </th>
-                <th onClick={() => handleSort('email')} className="sortable">
-                  Email
-                  {sortBy === 'email' && (
-                    <i className={`fas fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
-                  )}
-                </th>
-                <th onClick={() => handleSort('cardCount')} className="sortable">
-                  Cards
-                  {sortBy === 'cardCount' && (
-                    <i className={`fas fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
-                  )}
-                </th>
-                <th onClick={() => handleSort('lastLogin')} className="sortable">
-                  Last Login
-                  {sortBy === 'lastLogin' && (
-                    <i className={`fas fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
-                  )}
-                </th>
-                <th onClick={() => handleSort('createdAt')} className="sortable">
-                  Joined
-                  {sortBy === 'createdAt' && (
-                    <i className={`fas fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
-                  )}
-                </th>
-                <th>Status</th>
-                <th>Actions</th>
+                </td>
+                <td>
+                  <div className="admin-user-name">
+                    {user.name || 'Unnamed User'}
+                  </div>
+                </td>
+                <td>
+                  <div className="admin-user-email">
+                    {user.email}
+                  </div>
+                </td>
+                <td>
+                  <span className={`admin-status admin-status-${getUserStatusColor(user.status)}`}>
+                    {user.status}
+                  </span>
+                </td>
+                <td>
+                  <div className="admin-date">
+                    {user.joinedFormatted}
+                  </div>
+                </td>
+                <td>
+                  <div className="admin-date">
+                    {user.lastActivityFormatted}
+                  </div>
+                </td>
+                <td>
+                  <div className="admin-count">
+                    {user.cardCount || 0}
+                  </div>
+                </td>
+                <td>
+                  <div className="admin-count">
+                    {user.spaceCount || 0}
+                  </div>
+                </td>
+                <td>
+                  <div className="admin-actions">
+                    <button
+                      className="admin-action-btn admin-btn-view"
+                      onClick={() => viewUserDetails(user)}
+                      title="View Details"
+                    >
+                      <EyeIcon />
+                    </button>
+                    <button
+                      className={`admin-action-btn ${user.suspended ? 'admin-btn-success' : 'admin-btn-warning'}`}
+                      onClick={() => handleUserAction(user.suspended ? 'activate' : 'suspend', user._id)}
+                      title={user.suspended ? 'Activate User' : 'Suspend User'}
+                    >
+                      <ShieldIcon />
+                    </button>
+                    <button
+                      className="admin-action-btn admin-btn-info"
+                      onClick={() => handleUserAction('resetPassword', user._id)}
+                      title="Reset Password"
+                    >
+                      <KeyIcon />
+                    </button>
+                    <button
+                      className="admin-action-btn admin-btn-danger"
+                      onClick={() => handleUserAction('delete', user._id)}
+                      title="Delete User"
+                    >
+                      <XIcon />
+                    </button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => {
-                const status = getUserStatus(user);
-                return (
-                  <tr key={user._id} className={selectedUsers.includes(user._id) ? 'selected' : ''}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedUsers.includes(user._id)}
-                        onChange={() => handleUserSelect(user._id)}
-                      />
-                    </td>
-                    <td>
-                      <div className="user-cell">
-                        <div className="user-avatar">
-                          {user.name?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <div className="user-details">
-                          <strong>{user.name || 'Unknown User'}</strong>
-                          <small>ID: {user._id}</small>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="email-cell">
-                        <span>{user.email}</span>
-                        {user.emailVerified && (
-                          <i className="fas fa-check-circle verified-icon" title="Email Verified"></i>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <span className="badge-count">{user.cardCount || 0}</span>
-                    </td>
-                    <td>
-                      <div className="date-cell">
-                        {user.lastLogin ? (
-                          <>
-                            <span>{new Date(user.lastLogin).toLocaleDateString()}</span>
-                            <small>{new Date(user.lastLogin).toLocaleTimeString()}</small>
-                          </>
-                        ) : (
-                          <span className="never-logged">Never</span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="date-cell">
-                        <span>{new Date(user.createdAt).toLocaleDateString()}</span>
-                        <small>{new Date(user.createdAt).toLocaleTimeString()}</small>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`status-badge ${getUserStatusColor(status)}`}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="table-actions">
-                        <button 
-                          className="admin-btn-small primary" 
-                          onClick={() => viewUserDetails(user)}
-                          title="View Details"
-                        >
-                          <i className="fas fa-eye"></i>
-                        </button>
-                        
-                        {status === 'suspended' ? (
-                          <button 
-                            className="admin-btn-small success" 
-                            onClick={() => handleUserAction('activate', user._id)}
-                            title="Activate User"
-                          >
-                            <i className="fas fa-user-check"></i>
-                          </button>
-                        ) : (
-                          <button 
-                            className="admin-btn-small warning" 
-                            onClick={() => handleUserAction('suspend', user._id)}
-                            title="Suspend User"
-                          >
-                            <i className="fas fa-user-slash"></i>
-                          </button>
-                        )}
-                        
-                        <button 
-                          className="admin-btn-small secondary" 
-                          onClick={() => handleUserAction('resetPassword', user._id)}
-                          title="Reset Password"
-                        >
-                          <i className="fas fa-key"></i>
-                        </button>
-                        
-                        <button 
-                          className="admin-btn-small danger" 
-                          onClick={() => handleUserAction('delete', user._id)}
-                          title="Delete User"
-                        >
-                          <i className="fas fa-trash"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
 
-        {/* Pagination */}
-        <div className="pagination-container">
-          <div className="pagination-info">
-            Showing {((currentPage - 1) * usersPerPage) + 1} to {Math.min(currentPage * usersPerPage, totalUsers)} of {totalUsers} users
+        {users.length === 0 && !loading && (
+          <div className="admin-empty-state">
+            <UsersIcon />
+            <h3>No Users Found</h3>
+            <p>No users match your current search and filter criteria.</p>
           </div>
-          <div className="pagination">
-            <button 
-              className="admin-btn secondary" 
-              disabled={currentPage <= 1}
+        )}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="admin-pagination glass-bg">
+          <div className="admin-pagination-info">
+            Showing {((currentPage - 1) * usersPerPage) + 1} to {Math.min(currentPage * usersPerPage, totalUsers)} of {adminService.formatNumber(totalUsers)} users
+          </div>
+          <div className="admin-pagination-controls">
+            <button
+              className="admin-pagination-btn"
               onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
             >
-              <i className="fas fa-chevron-left"></i>
+              <ChevronLeftIcon />
               Previous
             </button>
             
-            <div className="page-numbers">
+            <div className="admin-pagination-pages">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const page = Math.max(1, currentPage - 2) + i;
-                if (page > totalPages) return null;
+                const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
                 return (
                   <button
-                    key={page}
-                    className={`page-btn ${currentPage === page ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(page)}
+                    key={pageNum}
+                    className={`admin-pagination-page ${currentPage === pageNum ? 'active' : ''}`}
+                    onClick={() => setCurrentPage(pageNum)}
                   >
-                    {page}
+                    {pageNum}
                   </button>
                 );
               })}
             </div>
-            
-            <button 
-              className="admin-btn secondary" 
-              disabled={currentPage >= totalPages}
+
+            <button
+              className="admin-pagination-btn"
               onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
             >
               Next
-              <i className="fas fa-chevron-right"></i>
+              <ChevronRightIcon />
             </button>
           </div>
         </div>
-      </div>
+      )}
 
       {/* User Details Modal */}
-      {showUserModal && (
-        <UserDetailsModal
+      {showUserModal && selectedUser && (
+        <UserDetailsModal 
           user={selectedUser}
           onClose={() => {
             setShowUserModal(false);
             setSelectedUser(null);
           }}
           onUpdate={fetchUsers}
-        />
-      )}
-
-      {/* Confirmation Modal */}
-      {showConfirmModal && (
-        <ConfirmModal
-          title={`Confirm Bulk ${bulkAction}`}
-          message={`Are you sure you want to ${bulkAction} ${selectedUsers.length} selected users?`}
-          onConfirm={confirmAction}
-          onCancel={() => setShowConfirmModal(false)}
         />
       )}
     </div>
@@ -528,202 +666,184 @@ const AdminUserManagement = () => {
 // User Details Modal Component
 const UserDetailsModal = ({ user, onClose, onUpdate }) => {
   const [loading, setLoading] = useState(false);
-  const [userDetails, setUserDetails] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [formData, setFormData] = useState({
+    name: user.user.name || '',
+    email: user.user.email || '',
+    verified: user.user.verified || false,
+    suspended: user.user.suspended || false
+  });
 
-  useEffect(() => {
-    if (user) {
-      fetchUserDetails();
-    }
-  }, [user]);
-
-  const fetchUserDetails = async () => {
+  const handleSave = async () => {
     try {
       setLoading(true);
-      const response = await adminService.getUserDetails(user._id);
+      const response = await adminService.updateUser(user.user._id, formData);
       if (response.success) {
-        setUserDetails(response.data);
+        onUpdate();
+        setEditMode(false);
       }
     } catch (error) {
-      console.error('Error fetching user details:', error);
+      console.error('Update user error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  if (!user) return null;
+  const XIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  );
+
+  const EditIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+      <path d="m18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/>
+    </svg>
+  );
+
+  const SaveIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  );
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-container large">
-        <div className="modal-header">
-          <h2>
-            <i className="fas fa-user"></i>
-            User Details
-          </h2>
-          <button className="modal-close" onClick={onClose}>
-            <i className="fas fa-times"></i>
+    <div className="admin-modal-overlay">
+      <div className="admin-modal glass-bg">
+        <div className="admin-modal-header">
+          <h2>User Details</h2>
+          <button 
+            className="admin-modal-close"
+            onClick={onClose}
+          >
+            <XIcon />
           </button>
         </div>
 
-        <div className="modal-content">
-          {loading ? (
-            <div className="loading-container">
-              <i className="fas fa-spinner fa-spin"></i>
-              <p>Loading user details...</p>
-            </div>
-          ) : (
-            <div className="user-details-grid">
-              <div className="detail-section">
-                <h3>Basic Information</h3>
-                <div className="detail-item">
+        <div className="admin-modal-content">
+          <div className="admin-user-details">
+            <div className="admin-user-basic-info">
+              <h3>Basic Information</h3>
+              
+              {editMode ? (
+                <div className="admin-form-group">
                   <label>Name:</label>
-                  <span>{user.name || 'Not provided'}</span>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    className="admin-form-input"
+                  />
                 </div>
-                <div className="detail-item">
+              ) : (
+                <p><strong>Name:</strong> {user.user.name || 'Not provided'}</p>
+              )}
+
+              {editMode ? (
+                <div className="admin-form-group">
                   <label>Email:</label>
-                  <span>{user.email}</span>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    className="admin-form-input"
+                  />
                 </div>
-                <div className="detail-item">
-                  <label>User ID:</label>
-                  <span>{user._id}</span>
-                </div>
-                <div className="detail-item">
-                  <label>Joined:</label>
-                  <span>{new Date(user.createdAt).toLocaleString()}</span>
-                </div>
-                <div className="detail-item">
-                  <label>Last Login:</label>
-                  <span>{user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}</span>
-                </div>
-              </div>
+              ) : (
+                <p><strong>Email:</strong> {user.user.email}</p>
+              )}
 
-              <div className="detail-section">
-                <h3>Activity Statistics</h3>
-                <div className="detail-item">
-                  <label>Cards Created:</label>
-                  <span>{userDetails?.cardCount || 0}</span>
-                </div>
-                <div className="detail-item">
-                  <label>Active Spaces:</label>
-                  <span>{userDetails?.spaceCount || 0}</span>
-                </div>
-                <div className="detail-item">
-                  <label>Connections:</label>
-                  <span>{userDetails?.connectionCount || 0}</span>
-                </div>
-                <div className="detail-item">
-                  <label>AI Conversations:</label>
-                  <span>{userDetails?.aiChatCount || 0}</span>
-                </div>
-              </div>
+              <p><strong>Status:</strong> <span className={`admin-status admin-status-${user.user.status}`}>{user.user.status}</span></p>
+              <p><strong>Joined:</strong> {user.user.joinedFormatted}</p>
+              <p><strong>Last Activity:</strong> {user.user.lastActivityFormatted}</p>
 
-              <div className="detail-section">
-                <h3>Account Status</h3>
-                <div className="detail-item">
-                  <label>Status:</label>
-                  <span className={`status-badge ${getUserStatusColor(getUserStatus(user))}`}>
-                    {getUserStatus(user).charAt(0).toUpperCase() + getUserStatus(user).slice(1)}
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <label>Email Verified:</label>
-                  <span className={user.emailVerified ? 'verified' : 'unverified'}>
-                    <i className={`fas ${user.emailVerified ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
-                    {user.emailVerified ? 'Verified' : 'Not Verified'}
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <label>Failed Login Attempts:</label>
-                  <span>{user.failedLoginAttempts || 0}</span>
-                </div>
-              </div>
-
-              {userDetails?.recentActivity && (
-                <div className="detail-section full-width">
-                  <h3>Recent Activity</h3>
-                  <div className="activity-list">
-                    {userDetails.recentActivity.map((activity, index) => (
-                      <div key={index} className="activity-item">
-                        <i className={`fas ${getActivityIcon(activity.type)}`}></i>
-                        <span>{activity.description}</span>
-                        <small>{new Date(activity.timestamp).toLocaleString()}</small>
-                      </div>
-                    ))}
-                  </div>
+              {editMode && (
+                <div className="admin-form-checkboxes">
+                  <label className="admin-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={formData.verified}
+                      onChange={(e) => setFormData(prev => ({ ...prev, verified: e.target.checked }))}
+                    />
+                    Verified
+                  </label>
+                  <label className="admin-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={formData.suspended}
+                      onChange={(e) => setFormData(prev => ({ ...prev, suspended: e.target.checked }))}
+                    />
+                    Suspended
+                  </label>
                 </div>
               )}
             </div>
+
+            <div className="admin-user-stats">
+              <h3>Activity Statistics</h3>
+              <div className="admin-stats-grid">
+                <div className="admin-stat-item">
+                  <span className="admin-stat-value">{user.stats.totalCards}</span>
+                  <span className="admin-stat-label">Total Cards</span>
+                </div>
+                <div className="admin-stat-item">
+                  <span className="admin-stat-value">{user.stats.totalSpaces}</span>
+                  <span className="admin-stat-label">Total Spaces</span>
+                </div>
+                <div className="admin-stat-item">
+                  <span className="admin-stat-value">{user.stats.totalInvitations}</span>
+                  <span className="admin-stat-label">Invitations</span>
+                </div>
+                <div className="admin-stat-item">
+                  <span className="admin-stat-value">{user.stats.totalAIChats}</span>
+                  <span className="admin-stat-label">AI Conversations</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="admin-modal-footer">
+          {editMode ? (
+            <>
+              <button 
+                className="admin-btn admin-btn-secondary"
+                onClick={() => {
+                  setEditMode(false);
+                  setFormData({
+                    name: user.user.name || '',
+                    email: user.user.email || '',
+                    verified: user.user.verified || false,
+                    suspended: user.user.suspended || false
+                  });
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="admin-btn admin-btn-primary"
+                onClick={handleSave}
+                disabled={loading}
+              >
+                <SaveIcon />
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </>
+          ) : (
+            <button 
+              className="admin-btn admin-btn-primary"
+              onClick={() => setEditMode(true)}
+            >
+              <EditIcon />
+              Edit User
+            </button>
           )}
         </div>
-
-        <div className="modal-footer">
-          <button className="admin-btn secondary" onClick={onClose}>
-            Close
-          </button>
-          <button className="admin-btn primary" onClick={() => {
-            onUpdate();
-            onClose();
-          }}>
-            Refresh Data
-          </button>
-        </div>
       </div>
     </div>
   );
-};
-
-// Confirmation Modal Component
-const ConfirmModal = ({ title, message, onConfirm, onCancel }) => {
-  return (
-    <div className="modal-overlay">
-      <div className="modal-container small">
-        <div className="modal-header">
-          <h2>
-            <i className="fas fa-exclamation-triangle"></i>
-            {title}
-          </h2>
-        </div>
-        <div className="modal-content">
-          <p>{message}</p>
-        </div>
-        <div className="modal-footer">
-          <button className="admin-btn secondary" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="admin-btn danger" onClick={onConfirm}>
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Helper functions
-const getUserStatus = (user) => {
-  if (user.suspended) return 'suspended';
-  if (user.lastLogin && new Date() - new Date(user.lastLogin) < 30 * 24 * 60 * 60 * 1000) return 'active';
-  return 'inactive';
-};
-
-const getUserStatusColor = (status) => {
-  switch (status) {
-    case 'active': return 'success';
-    case 'suspended': return 'danger';
-    case 'inactive': return 'warning';
-    default: return 'secondary';
-  }
-};
-
-const getActivityIcon = (type) => {
-  const iconMap = {
-    'login': 'fa-sign-in-alt',
-    'card_created': 'fa-id-card',
-    'space_created': 'fa-project-diagram',
-    'ai_chat': 'fa-brain',
-    'connection': 'fa-link'
-  };
-  return iconMap[type] || 'fa-info-circle';
 };
 
 export default AdminUserManagement; 

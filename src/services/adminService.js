@@ -83,10 +83,45 @@ const adminService = {
   // AI ANALYTICS
   // ===============================
   
-  getAIAnalytics: async () => {
+  getAIAnalytics: async (params = {}) => {
     try {
-      const response = await adminApi.get('/admin/analytics/ai');
+      const queryParams = new URLSearchParams(params).toString();
+      const response = await adminApi.get(`/admin/analytics/ai?${queryParams}`);
       return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getAITrends: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams(params).toString();
+      const response = await adminApi.get(`/admin/analytics/ai/trends?${queryParams}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  exportAIData: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams(params).toString();
+      const response = await adminApi.get(`/admin/export/ai-analytics?${queryParams}`, {
+        responseType: 'blob'
+      });
+      
+      // Create download link
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ai-analytics-export-${Date.now()}.${params.format || 'json'}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true };
     } catch (error) {
       throw error;
     }
@@ -96,10 +131,29 @@ const adminService = {
   // USER MANAGEMENT
   // ===============================
   
+  getUserManagement: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams(params).toString();
+      const response = await adminApi.get(`/admin/users?${queryParams}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   getAllUsers: async (params = {}) => {
     try {
       const queryParams = new URLSearchParams(params).toString();
       const response = await adminApi.get(`/admin/users?${queryParams}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getUserDetails: async (userId) => {
+    try {
+      const response = await adminApi.get(`/admin/users/${userId}`);
       return response.data;
     } catch (error) {
       throw error;
@@ -136,6 +190,42 @@ const adminService = {
   exportUserData: async (userId) => {
     try {
       const response = await adminApi.get(`/admin/users/${userId}/export`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  bulkUserAction: async (action, userIds) => {
+    try {
+      const response = await adminApi.post('/admin/users/bulk-action', { action, userIds });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  suspendUser: async (userId) => {
+    try {
+      const response = await adminApi.post(`/admin/users/${userId}/toggle-status`, { suspend: true });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  activateUser: async (userId) => {
+    try {
+      const response = await adminApi.post(`/admin/users/${userId}/toggle-status`, { suspend: false });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  resetUserPassword: async (userId) => {
+    try {
+      const response = await adminApi.post(`/admin/users/${userId}/reset-password`);
       return response.data;
     } catch (error) {
       throw error;

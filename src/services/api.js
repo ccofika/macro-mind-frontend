@@ -40,6 +40,43 @@ api.interceptors.response.use(
       }
     }
     
+    // Handle 403 Forbidden errors (suspended account)
+    if (error.response && error.response.status === 403) {
+      const errorData = error.response.data;
+      
+      if (errorData.suspended) {
+        // Account is suspended
+        localStorage.removeItem('token');
+        delete api.defaults.headers.common['Authorization'];
+        
+        // Create suspended message overlay or redirect to suspended page
+        if (!window.location.pathname.includes('/login')) {
+          // Store the suspended state in localStorage so we can show appropriate message
+          localStorage.setItem('accountSuspended', 'true');
+          window.location.href = '/login';
+        }
+      }
+    }
+    
+    // Handle 423 Locked errors (account locked due to failed attempts)
+    if (error.response && error.response.status === 423) {
+      const errorData = error.response.data;
+      
+      if (errorData.lockedUntil) {
+        // Account is temporarily locked
+        localStorage.removeItem('token');
+        delete api.defaults.headers.common['Authorization'];
+        
+        // Store the locked state and unlock time
+        localStorage.setItem('accountLocked', 'true');
+        localStorage.setItem('lockedUntil', errorData.lockedUntil);
+        
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+      }
+    }
+    
     console.error('API Error:', error.response);
     return Promise.reject(error);
   }

@@ -147,4 +147,64 @@
 .auth-error::before {
   content: "⚠️";
   font-size: 16px;
+}
+
+/* Suspended Account Styles */
+.auth-suspended {
+  background: rgba(255, 152, 0, 0.1);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  color: #FFB74D;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.auth-suspended::before {
+  content: none;
+}
+
+.auth-suspended strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #FF9800;
+}
+
+.auth-suspended p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #FFB74D;
+}
+
+/* Locked Account Styles */
+.auth-locked {
+  background: rgba(156, 39, 176, 0.1);
+  border: 1px solid rgba(156, 39, 176, 0.3);
+  color: #CE93D8;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.auth-locked::before {
+  content: none;
+}
+
+.auth-locked strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #9C27B0;
+}
+
+.auth-locked p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #CE93D8;
 } 

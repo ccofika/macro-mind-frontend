@@ -17,6 +17,7 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isSuspended, setIsSuspended] = useState(false);
   const navigate = useNavigate();
 
   // Check if user is already logged in on mount
@@ -34,6 +35,11 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (error) {
         console.error('Authentication error:', error);
+        // Check if error is due to suspended account
+        if (error.response?.data?.suspended) {
+          setIsSuspended(true);
+          setError('Account suspended. Please contact administrator.');
+        }
         localStorage.removeItem('token');
         delete api.defaults.headers.common['Authorization'];
       } finally {
@@ -60,7 +66,13 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error('Login error:', error);
-      setError(error.response?.data?.message || 'Login failed');
+      // Check if error is due to suspended account
+      if (error.response?.data?.suspended) {
+        setIsSuspended(true);
+        setError('Account suspended. Please contact administrator.');
+      } else {
+        setError(error.response?.data?.message || 'Login failed');
+      }
       return false;
     }
   };
@@ -81,7 +93,13 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error('Google login error:', error);
-      setError(error.response?.data?.message || 'Google login failed');
+      // Check if error is due to suspended account
+      if (error.response?.data?.suspended) {
+        setIsSuspended(true);
+        setError('Account suspended. Please contact administrator.');
+      } else {
+        setError(error.response?.data?.message || 'Google login failed');
+      }
       return false;
     }
   };
@@ -112,6 +130,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     delete api.defaults.headers.common['Authorization'];
     setCurrentUser(null);
+    setIsSuspended(false);
+    setError(null);
     navigate('/login');
   };
 
@@ -119,11 +139,13 @@ export const AuthProvider = ({ children }) => {
     currentUser,
     loading,
     error,
+    isSuspended,
     login,
     googleLogin,
     register,
     logout,
-    setError
+    setError,
+    setIsSuspended
   };
 
   return (

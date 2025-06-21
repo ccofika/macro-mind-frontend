@@ -3,525 +3,695 @@ import adminService from '../../services/adminService';
 import './AdminPages.css';
 
 const AdminAIAnalytics = () => {
+  const [overviewData, setOverviewData] = useState(null);
+  const [trendsData, setTrendsData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [timeRange, setTimeRange] = useState('30d');
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('lastActivity');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [filterBy, setFilterBy] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedMode, setSelectedMode] = useState('all');
 
   useEffect(() => {
     fetchData();
-  }, [timeRange, selectedMode]);
+  }, [timeRange, sortBy, sortOrder, filterBy, currentPage, selectedMode]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      setError('');
-      const response = await adminService.getAIAnalytics({ timeRange, mode: selectedMode });
-      if (response.success) {
-        setData(response.data);
+      setError(null);
+      
+      if (activeTab === 'trends') {
+        const trendsResponse = await adminService.getAITrends({ timeRange });
+        if (trendsResponse.success) {
+          setTrendsData(trendsResponse.data);
+        } else {
+          setError(trendsResponse.message || 'Failed to load trends data');
+        }
       } else {
-        setError(response.message || 'Failed to load AI analytics');
+        const response = await adminService.getAIAnalytics({
+          timeRange,
+          sortBy,
+          sortOrder,
+          filterBy,
+          search: searchTerm,
+          page: currentPage,
+          limit: 20,
+          mode: selectedMode
+        });
+        if (response.success) {
+          setOverviewData(response.data);
+        } else {
+          setError(response.message || 'Failed to load AI analytics data');
+        }
       }
     } catch (err) {
-      console.error('AI analytics error:', err);
-      setError('Error loading AI analytics data');
+      console.error('AI Analytics error:', err);
+      setError(err.message || 'Error loading AI analytics data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const exportAIData = (format) => {
+  useEffect(() => {
+    fetchData();
+  }, [activeTab]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+  };
+
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleSearchSubmit = () => {
+    setCurrentPage(1);
+    fetchData();
+  };
+
+  const exportData = async (format) => {
     try {
-      const filename = `ai-analytics-${new Date().getTime()}`;
-      if (format === 'csv') {
-        adminService.exportToCSV(data.conversations, `${filename}.csv`);
-      } else if (format === 'json') {
-        adminService.exportToJSON(data, `${filename}.json`);
-      }
+      console.log(`🚀 Starting ${format.toUpperCase()} export...`);
+      
+      const exportParams = {
+        format: format,
+        search: searchTerm,
+        filterBy: filterBy,
+        timeRange: timeRange,
+        mode: selectedMode,
+        includeStats: 'true'
+      };
+
+      await adminService.exportAIData(exportParams);
+      console.log(`✅ ${format.toUpperCase()} export completed successfully`);
+      
     } catch (error) {
-      console.error('Export error:', error);
+      console.error('❌ Export error:', error);
+      setError(`Export failed: ${error.message}`);
     }
+  };
+
+  // Professional SVG Icons
+  const SpinnerIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="spinner-icon">
+      <path d="M21 12a9 9 0 11-6.219-8.56"/>
+    </svg>
+  );
+
+  const WarningIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  );
+
+  const RefreshIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="23 4 23 10 17 10"/>
+      <polyline points="1 20 1 14 7 14"/>
+      <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </svg>
+  );
+
+  const BrainIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+      <path d="M2 17l10 5 10-5"/>
+      <path d="M2 12l10 5 10-5"/>
+    </svg>
+  );
+
+  const MessageIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  );
+
+  const TokenIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+    </svg>
+  );
+
+  const TrendingUpIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+      <polyline points="17 6 23 6 23 12"/>
+    </svg>
+  );
+
+  const SearchIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="8"/>
+      <path d="m21 21-4.35-4.35"/>
+    </svg>
+  );
+
+  const FilterIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+    </svg>
+  );
+
+  const DownloadIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+  );
+
+  const ChevronLeftIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  );
+
+  const ChevronRightIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="9 18 15 12 9 6"/>
+    </svg>
+  );
+
+  const getModeIcon = (mode) => {
+    switch (mode) {
+      case 'conversational':
+        return <MessageIcon />;
+      case 'task-oriented':
+        return <BrainIcon />;
+      case 'creative':
+        return <TokenIcon />;
+      case 'analytical':
+        return <TrendingUpIcon />;
+      default:
+        return <BrainIcon />;
+    }
+  };
+
+  const formatNumber = (num) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num?.toString() || '0';
+  };
+
+  const formatBytes = (bytes) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const formatPercentage = (value) => {
+    return `${Math.round(value || 0)}%`;
+  };
+
+  const formatCurrency = (value) => {
+    return `$${(value || 0).toFixed(4)}`;
   };
 
   if (loading) {
     return (
-      <div className="admin-loading">
-        <i className="fas fa-spinner fa-spin"></i>
-        <p>Loading AI Analytics...</p>
+      <div className="admin-page">
+        <div className="admin-loading">
+          <SpinnerIcon />
+          <p>Loading AI Analytics...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="admin-error">
-        <i className="fas fa-exclamation-triangle"></i>
-        <p>{error}</p>
-        <button onClick={fetchData} className="admin-retry-btn">
-          <i className="fas fa-redo"></i>
-          Retry
-        </button>
+      <div className="admin-page">
+        <div className="admin-error">
+          <WarningIcon />
+          <p>{error}</p>
+          <button onClick={handleRefresh} className="admin-retry-btn">
+            <RefreshIcon />
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
 
-  const { 
-    overview, 
-    usageByMode, 
-    dailyUsage, 
-    performanceMetrics, 
-    topUsers, 
-    errorAnalysis,
-    recentConversations 
-  } = data || {};
-
   return (
     <div className="admin-page">
+      {/* Header */}
       <div className="admin-page-header">
         <div className="header-content">
           <h1>
-            <i className="fas fa-brain"></i>
+            <BrainIcon />
             AI Analytics
           </h1>
           <p>Comprehensive AI system performance and usage analytics</p>
         </div>
-        <div className="header-actions">
+        
+        <div className="header-controls">
           <div className="time-range-selector">
-            <select value={timeRange} onChange={(e) => setTimeRange(e.target.value)} className="admin-select">
+            <select 
+              value={timeRange} 
+              onChange={(e) => setTimeRange(e.target.value)}
+              className="admin-select"
+            >
               <option value="1d">Last 24 hours</option>
               <option value="7d">Last 7 days</option>
               <option value="30d">Last 30 days</option>
               <option value="90d">Last 90 days</option>
+              <option value="1y">Last year</option>
             </select>
           </div>
-          <div className="mode-selector">
-            <select value={selectedMode} onChange={(e) => setSelectedMode(e.target.value)} className="admin-select">
-              <option value="all">All Modes</option>
-              <option value="conversational">Conversational</option>
-              <option value="task-oriented">Task-Oriented</option>
-              <option value="creative">Creative</option>
-              <option value="analytical">Analytical</option>
-            </select>
-          </div>
-          <button className="admin-refresh-button" onClick={fetchData}>
-            <i className="fas fa-sync-alt"></i>
-            Refresh
+          
+          <button 
+            className={`admin-refresh-btn ${refreshing ? 'refreshing' : ''}`}
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshIcon />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
       </div>
 
-      <div className="admin-content">
-        {/* AI Analytics Tabs */}
-        <div className="admin-tabs">
-          <button 
-            className={`admin-tab ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            <i className="fas fa-chart-pie"></i>
-            Overview
-          </button>
-          <button 
-            className={`admin-tab ${activeTab === 'performance' ? 'active' : ''}`}
-            onClick={() => setActiveTab('performance')}
-          >
-            <i className="fas fa-tachometer-alt"></i>
-            Performance
-          </button>
-          <button 
-            className={`admin-tab ${activeTab === 'usage' ? 'active' : ''}`}
-            onClick={() => setActiveTab('usage')}
-          >
-            <i className="fas fa-chart-line"></i>
-            Usage Patterns
-          </button>
-          <button 
-            className={`admin-tab ${activeTab === 'conversations' ? 'active' : ''}`}
-            onClick={() => setActiveTab('conversations')}
-          >
-            <i className="fas fa-comments"></i>
-            Conversations
-          </button>
-        </div>
+      {/* Navigation Tabs */}
+      <div className="admin-tabs">
+        <button
+          className={`admin-tab ${activeTab === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >
+          <BrainIcon />
+          Overview
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'performance' ? 'active' : ''}`}
+          onClick={() => setActiveTab('performance')}
+        >
+          <TrendingUpIcon />
+          Performance
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'users' ? 'active' : ''}`}
+          onClick={() => setActiveTab('users')}
+        >
+          <MessageIcon />
+          User Adoption
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'trends' ? 'active' : ''}`}
+          onClick={() => setActiveTab('trends')}
+        >
+          <TrendingUpIcon />
+          Trends
+        </button>
+      </div>
 
+      {/* Content */}
+      <div className="admin-content">
         {/* Overview Tab */}
-        {activeTab === 'overview' && (
+        {activeTab === 'overview' && overviewData && (
           <div className="tab-content">
+            {/* Key Metrics */}
             <div className="admin-stats-grid">
               <div className="admin-stat-card primary">
                 <div className="admin-stat-icon">
-                  <i className="fas fa-comments"></i>
+                  <MessageIcon />
                 </div>
-                <div className="admin-stat-info">
+                <div className="admin-stat-content">
                   <h3>Total Conversations</h3>
-                  <p className="admin-stat-value">{overview?.totalConversations || 0}</p>
-                  <span className="admin-stat-change positive">
-                    <i className="fas fa-arrow-up"></i>
-                    +{overview?.newConversationsThisPeriod || 0} this period
-                  </span>
+                  <div className="admin-stat-value">{formatNumber(overviewData.overview?.totalConversations || 0)}</div>
+                  <div className="admin-stat-change positive">
+                    +{formatNumber(overviewData.overview?.recentConversations || 0)} this period
+                  </div>
                 </div>
               </div>
 
               <div className="admin-stat-card success">
                 <div className="admin-stat-icon">
-                  <i className="fas fa-message"></i>
+                  <BrainIcon />
                 </div>
-                <div className="admin-stat-info">
+                <div className="admin-stat-content">
                   <h3>Total Messages</h3>
-                  <p className="admin-stat-value">{overview?.totalMessages || 0}</p>
-                  <span className="admin-stat-change positive">
-                    <i className="fas fa-arrow-up"></i>
-                    +{overview?.newMessagesThisPeriod || 0} this period
-                  </span>
+                  <div className="admin-stat-value">{formatNumber(overviewData.overview?.totalMessages || 0)}</div>
+                  <div className="admin-stat-change positive">
+                    +{formatNumber(overviewData.overview?.recentMessages || 0)} this period
+                  </div>
                 </div>
               </div>
 
               <div className="admin-stat-card warning">
                 <div className="admin-stat-icon">
-                  <i className="fas fa-coins"></i>
+                  <TokenIcon />
                 </div>
-                <div className="admin-stat-info">
+                <div className="admin-stat-content">
                   <h3>Tokens Used</h3>
-                  <p className="admin-stat-value">{adminService.formatNumber(overview?.totalTokens || 0)}</p>
-                  <span className="admin-stat-change">
-                    ${(overview?.estimatedCost || 0).toFixed(2)} estimated cost
-                  </span>
+                  <div className="admin-stat-value">{formatNumber(overviewData.overview?.totalTokens || 0)}</div>
+                  <div className="admin-stat-change">
+                    {formatCurrency(overviewData.overview?.estimatedCost || 0)} estimated cost
+                  </div>
                 </div>
               </div>
 
               <div className="admin-stat-card info">
                 <div className="admin-stat-icon">
-                  <i className="fas fa-clock"></i>
+                  <TrendingUpIcon />
                 </div>
-                <div className="admin-stat-info">
-                  <h3>Avg Response Time</h3>
-                  <p className="admin-stat-value">{overview?.avgResponseTime || 0}ms</p>
-                  <span className={`admin-stat-change ${overview?.responseTimeChange > 0 ? 'negative' : 'positive'}`}>
-                    <i className={`fas ${overview?.responseTimeChange > 0 ? 'fa-arrow-up' : 'fa-arrow-down'}`}></i>
-                    {Math.abs(overview?.responseTimeChange || 0)}ms from last period
-                  </span>
+                <div className="admin-stat-content">
+                  <h3>Success Rate</h3>
+                  <div className="admin-stat-value">{formatPercentage(overviewData.overview?.successRate || 0)}</div>
+                  <div className="admin-stat-change positive">
+                    {Math.round(overviewData.overview?.avgResponseTime || 0)}ms avg time
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* AI Mode Distribution */}
-            <div className="admin-analytics-section">
-              <h3>AI Mode Usage Distribution</h3>
-              <div className="mode-distribution-grid">
-                {usageByMode?.map((mode, index) => (
-                  <div key={index} className="mode-card">
-                    <div className="mode-header">
-                      <div className="mode-icon">
-                        <i className={getAIModeIcon(mode._id)}></i>
+            {/* Usage by Mode */}
+            {overviewData.usageByMode && overviewData.usageByMode.length > 0 && (
+              <div className="admin-section">
+                <h3>AI Mode Usage</h3>
+                <div className="admin-cards-grid">
+                  {overviewData.usageByMode.map((mode, index) => (
+                    <div key={index} className="admin-info-card">
+                      <div className="card-header">
+                        <div className="card-icon">
+                          {getModeIcon(mode._id)}
+                        </div>
+                        <div className="card-title">
+                          <h4>{mode._id || 'Unknown Mode'}</h4>
+                          <p>{formatNumber(mode.count)} messages</p>
+                        </div>
                       </div>
-                      <div className="mode-info">
-                        <h4>{formatModeName(mode._id)}</h4>
-                        <span>{mode.count} conversations</span>
+                      <div className="card-content">
+                        <div className="stat-row">
+                          <span>Confidence:</span>
+                          <span>{formatPercentage(mode.avgConfidence)}</span>
+                        </div>
+                        <div className="stat-row">
+                          <span>Tokens:</span>
+                          <span>{formatNumber(mode.totalTokens)}</span>
+                        </div>
+                        <div className="stat-row">
+                          <span>Users:</span>
+                          <span>{formatNumber(mode.uniqueUserCount)}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="mode-stats">
-                      <div className="stat-row">
-                        <span>Avg Confidence:</span>
-                        <span className="stat-value">{Math.round(mode.avgConfidence || 0)}%</span>
-                      </div>
-                      <div className="stat-row">
-                        <span>Avg Response Time:</span>
-                        <span className="stat-value">{Math.round(mode.avgProcessingTime || 0)}ms</span>
-                      </div>
-                      <div className="stat-row">
-                        <span>Total Tokens:</span>
-                        <span className="stat-value">{adminService.formatNumber(mode.totalTokens || 0)}</span>
-                      </div>
-                    </div>
-                    <div className="mode-usage-bar">
-                      <div 
-                        className="usage-fill" 
-                        style={{ width: `${(mode.count / overview?.totalConversations) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Real-time System Status */}
-            <div className="admin-analytics-section">
-              <h3>System Status</h3>
-              <div className="system-status-grid">
-                <div className="status-indicator">
-                  <div className="status-icon healthy">
-                    <i className="fas fa-heartbeat"></i>
-                  </div>
-                  <div className="status-info">
-                    <h4>AI Service</h4>
-                    <span className="status-text">Operational</span>
-                    <small>99.9% uptime</small>
-                  </div>
-                </div>
-                <div className="status-indicator">
-                  <div className="status-icon healthy">
-                    <i className="fas fa-server"></i>
-                  </div>
-                  <div className="status-info">
-                    <h4>Response Time</h4>
-                    <span className="status-text">{overview?.avgResponseTime || 120}ms</span>
-                    <small>Within normal range</small>
-                  </div>
-                </div>
-                <div className="status-indicator">
-                  <div className={`status-icon ${overview?.errorRate > 5 ? 'warning' : 'healthy'}`}>
-                    <i className="fas fa-exclamation-triangle"></i>
-                  </div>
-                  <div className="status-info">
-                    <h4>Error Rate</h4>
-                    <span className="status-text">{overview?.errorRate || 0}%</span>
-                    <small>{overview?.errorRate > 5 ? 'Above threshold' : 'Normal'}</small>
-                  </div>
-                </div>
-                <div className="status-indicator">
-                  <div className="status-icon healthy">
-                    <i className="fas fa-shield-alt"></i>
-                  </div>
-                  <div className="status-info">
-                    <h4>Security</h4>
-                    <span className="status-text">Secure</span>
-                    <small>All checks passed</small>
-                  </div>
+            {/* Recent Activity */}
+            {overviewData.recentActivity && overviewData.recentActivity.length > 0 && (
+              <div className="admin-section">
+                <h3>Recent Activity</h3>
+                <div className="admin-table-container">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Conversation</th>
+                        <th>User</th>
+                        <th>Messages</th>
+                        <th>Last Active</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overviewData.recentActivity.map((activity, index) => (
+                        <tr key={index}>
+                          <td>
+                            <div className="table-cell-main">
+                              {activity.title || 'Untitled Conversation'}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="table-cell-main">
+                              {activity.userId?.name || 'Unknown User'}
+                            </div>
+                            <div className="table-cell-sub">
+                              {activity.userId?.email || 'unknown@email.com'}
+                            </div>
+                          </td>
+                          <td>{activity.stats?.messageCount || 0}</td>
+                          <td>{new Date(activity.updatedAt).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
         {/* Performance Tab */}
-        {activeTab === 'performance' && (
+        {activeTab === 'performance' && overviewData && (
           <div className="tab-content">
-            <div className="performance-grid">
-              <div className="performance-section">
-                <h3>Response Time Analysis</h3>
-                <div className="performance-metrics">
-                  <div className="metric-card">
-                    <h4>Average</h4>
-                    <span className="metric-value">{performanceMetrics?.avgResponseTime || 0}ms</span>
-                  </div>
-                  <div className="metric-card">
-                    <h4>Median</h4>
-                    <span className="metric-value">{performanceMetrics?.medianResponseTime || 0}ms</span>
-                  </div>
-                  <div className="metric-card">
-                    <h4>95th Percentile</h4>
-                    <span className="metric-value">{performanceMetrics?.p95ResponseTime || 0}ms</span>
-                  </div>
-                  <div className="metric-card">
-                    <h4>Max</h4>
-                    <span className="metric-value">{performanceMetrics?.maxResponseTime || 0}ms</span>
+            <div className="admin-section">
+              <h3>Performance Metrics</h3>
+              <div className="admin-stats-grid">
+                <div className="admin-stat-card">
+                  <h4>Average Response Time</h4>
+                  <div className="admin-stat-value">
+                    {Math.round(overviewData.performanceMetrics?.avgResponseTime || 0)}ms
                   </div>
                 </div>
-              </div>
-
-              <div className="performance-section">
-                <h3>Token Usage Efficiency</h3>
-                <div className="efficiency-metrics">
-                  <div className="efficiency-item">
-                    <span>Tokens per Message:</span>
-                    <span className="efficiency-value">{Math.round(performanceMetrics?.avgTokensPerMessage || 0)}</span>
+                <div className="admin-stat-card">
+                  <h4>Success Rate</h4>
+                  <div className="admin-stat-value">
+                    {formatPercentage(overviewData.performanceMetrics?.successRate)}
                   </div>
-                  <div className="efficiency-item">
-                    <span>Cost per Message:</span>
-                    <span className="efficiency-value">${(performanceMetrics?.avgCostPerMessage || 0).toFixed(4)}</span>
+                </div>
+                <div className="admin-stat-card">
+                  <h4>Avg Tokens per Message</h4>
+                  <div className="admin-stat-value">
+                    {Math.round(overviewData.performanceMetrics?.avgTokensPerMessage || 0)}
                   </div>
-                  <div className="efficiency-item">
-                    <span>Daily Token Usage:</span>
-                    <span className="efficiency-value">{adminService.formatNumber(performanceMetrics?.dailyTokenUsage || 0)}</span>
-                  </div>
-                  <div className="efficiency-item">
-                    <span>Projected Monthly Cost:</span>
-                    <span className="efficiency-value">${(performanceMetrics?.projectedMonthlyCost || 0).toFixed(2)}</span>
+                </div>
+                <div className="admin-stat-card">
+                  <h4>Avg Confidence</h4>
+                  <div className="admin-stat-value">
+                    {formatPercentage(overviewData.performanceMetrics?.avgConfidence)}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Error Analysis */}
-            <div className="admin-analytics-section">
-              <h3>Error Analysis</h3>
-              <div className="error-breakdown">
-                {errorAnalysis?.map((error, index) => (
-                  <div key={index} className="error-item">
-                    <div className="error-type">
-                      <i className="fas fa-exclamation-circle"></i>
-                      <span>{error.type || 'Unknown Error'}</span>
-                    </div>
-                    <div className="error-count">
-                      <span className="count">{error.count}</span>
-                      <small>{Math.round((error.count / overview?.totalMessages) * 100 || 0)}%</small>
-                    </div>
-                  </div>
-                ))}
+            {/* Error Patterns */}
+            {overviewData.errorPatterns && overviewData.errorPatterns.length > 0 && (
+              <div className="admin-section">
+                <h3>Error Patterns</h3>
+                <div className="admin-table-container">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Error Message</th>
+                        <th>Occurrences</th>
+                        <th>Affected Users</th>
+                        <th>Latest</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overviewData.errorPatterns.map((error, index) => (
+                        <tr key={index}>
+                          <td>
+                            <div className="table-cell-main">
+                              {error._id || 'Unknown Error'}
+                            </div>
+                          </td>
+                          <td>{error.count}</td>
+                          <td>{error.affectedUserCount || 0}</td>
+                          <td>{new Date(error.latestOccurrence).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
-        {/* Usage Patterns Tab */}
-        {activeTab === 'usage' && (
+        {/* User Adoption Tab */}
+        {activeTab === 'users' && overviewData && (
           <div className="tab-content">
-            <div className="usage-charts">
-              <div className="chart-section">
-                <h3>Daily Usage Trends</h3>
-                <div className="trend-chart-placeholder">
-                  <i className="fas fa-chart-line"></i>
-                  <p>Daily AI usage visualization</p>
-                  <small>Interactive charts coming soon</small>
-                </div>
-              </div>
-              
-              <div className="chart-section">
-                <h3>Hourly Activity Pattern</h3>
-                <div className="hourly-activity">
-                  {Array.from({ length: 24 }, (_, hour) => {
-                    const activity = dailyUsage?.find(d => d.hour === hour) || { count: 0 };
-                    return (
-                      <div key={hour} className="hour-bar">
-                        <div 
-                          className="bar-fill" 
-                          style={{ height: `${(activity.count / Math.max(...(dailyUsage?.map(d => d.count) || [1]))) * 100}%` }}
-                        ></div>
-                        <span className="hour-label">{hour}h</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Top AI Users */}
-            <div className="admin-analytics-section">
-              <h3>Most Active AI Users</h3>
-              <div className="top-users-list">
-                {topUsers?.slice(0, 10).map((user, index) => (
-                  <div key={user._id} className="ai-user-item">
-                    <div className="user-rank">#{index + 1}</div>
-                    <div className="user-avatar">
-                      {user.name?.charAt(0).toUpperCase() || 'U'}
-                    </div>
-                    <div className="user-info">
-                      <h4>{user.name || 'Unknown User'}</h4>
-                      <span>{user.email}</span>
-                    </div>
-                    <div className="user-ai-stats">
-                      <div className="ai-stat">
-                        <span className="ai-stat-label">Conversations:</span>
-                        <span className="ai-stat-value">{user.conversationCount}</span>
-                      </div>
-                      <div className="ai-stat">
-                        <span className="ai-stat-label">Messages:</span>
-                        <span className="ai-stat-value">{user.messageCount}</span>
-                      </div>
-                      <div className="ai-stat">
-                        <span className="ai-stat-label">Tokens:</span>
-                        <span className="ai-stat-value">{adminService.formatNumber(user.tokenCount)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Conversations Tab */}
-        {activeTab === 'conversations' && (
-          <div className="tab-content">
+            {/* Controls */}
             <div className="admin-controls">
+              <div className="admin-search-bar">
+                <SearchIcon />
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={searchTerm}
+                  onChange={handleSearch}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearchSubmit()}
+                />
+                <button onClick={handleSearchSubmit} className="search-btn">
+                  Search
+                </button>
+              </div>
+
+              <div className="admin-filters">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="admin-select"
+                >
+                  <option value="lastActivity">Last Activity</option>
+                  <option value="messageCount">Message Count</option>
+                  <option value="conversationCount">Conversations</option>
+                  <option value="totalTokens">Tokens Used</option>
+                </select>
+
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  className="admin-select"
+                >
+                  <option value="desc">Descending</option>
+                  <option value="asc">Ascending</option>
+                </select>
+              </div>
+
               <div className="admin-actions">
-                <button className="admin-btn secondary" onClick={() => exportAIData('csv')}>
-                  <i className="fas fa-file-csv"></i>
+                <button onClick={() => exportData('csv')} className="export-btn">
+                  <DownloadIcon />
                   Export CSV
                 </button>
-                <button className="admin-btn secondary" onClick={() => exportAIData('json')}>
-                  <i className="fas fa-file-code"></i>
+                <button onClick={() => exportData('json')} className="export-btn">
+                  <DownloadIcon />
                   Export JSON
                 </button>
               </div>
             </div>
 
-            <div className="conversations-list">
-              {recentConversations?.map((conversation) => (
-                <div key={conversation._id} className="conversation-card">
-                  <div className="conversation-header">
-                    <div className="conversation-user">
-                      <div className="user-avatar">
-                        {conversation.userId?.name?.charAt(0).toUpperCase() || 'U'}
-                      </div>
-                      <div className="user-details">
-                        <h4>{conversation.userId?.name || 'Unknown User'}</h4>
-                        <span>{conversation.userId?.email}</span>
-                      </div>
-                    </div>
-                    <div className="conversation-meta">
-                      <span className="conversation-date">
-                        {new Date(conversation.createdAt).toLocaleDateString()}
-                      </span>
-                      <span className={`conversation-mode ${conversation.mode}`}>
-                        {formatModeName(conversation.mode)}
-                      </span>
-                    </div>
+            {/* User Adoption Table */}
+            {overviewData.userAdoption && overviewData.userAdoption.data && (
+              <div className="admin-section">
+                <h3>User Adoption ({overviewData.userAdoption.totalCount} users)</h3>
+                <div className="admin-table-container">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>User</th>
+                        <th>Conversations</th>
+                        <th>Messages</th>
+                        <th>Tokens Used</th>
+                        <th>Avg Response Time</th>
+                        <th>Last Activity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overviewData.userAdoption.data.map((user, index) => (
+                        <tr key={index}>
+                          <td>
+                            <div className="table-cell-main">
+                              {user.userName || 'Unknown User'}
+                            </div>
+                            <div className="table-cell-sub">
+                              {user.userEmail || 'unknown@email.com'}
+                            </div>
+                          </td>
+                          <td>{user.conversationCount || 0}</td>
+                          <td>{user.messageCount || 0}</td>
+                          <td>{formatNumber(user.totalTokens || 0)}</td>
+                          <td>{Math.round(user.avgResponseTime || 0)}ms</td>
+                          <td>{new Date(user.lastActivity).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {overviewData.userAdoption.totalPages > 1 && (
+                  <div className="admin-pagination">
+                    <button
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="page-btn"
+                    >
+                      <ChevronLeftIcon />
+                      Previous
+                    </button>
+                    
+                    <span className="page-info">
+                      Page {currentPage} of {overviewData.userAdoption.totalPages}
+                    </span>
+                    
+                    <button
+                      onClick={() => setCurrentPage(Math.min(overviewData.userAdoption.totalPages, currentPage + 1))}
+                      disabled={currentPage === overviewData.userAdoption.totalPages}
+                      className="page-btn"
+                    >
+                      Next
+                      <ChevronRightIcon />
+                    </button>
                   </div>
-                  <div className="conversation-stats">
-                    <div className="stat-item">
-                      <i className="fas fa-message"></i>
-                      <span>{conversation.messageCount} messages</span>
-                    </div>
-                    <div className="stat-item">
-                      <i className="fas fa-coins"></i>
-                      <span>{adminService.formatNumber(conversation.totalTokens)} tokens</span>
-                    </div>
-                    <div className="stat-item">
-                      <i className="fas fa-clock"></i>
-                      <span>{conversation.avgResponseTime}ms avg</span>
-                    </div>
-                  </div>
-                  <div className="conversation-actions">
-                    <button className="admin-btn-small primary" title="View Conversation">
-                      <i className="fas fa-eye"></i>
-                    </button>
-                    <button className="admin-btn-small secondary" title="Analyze">
-                      <i className="fas fa-chart-bar"></i>
-                    </button>
-                    <button className="admin-btn-small danger" title="Delete">
-                      <i className="fas fa-trash"></i>
-                    </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Trends Tab */}
+        {activeTab === 'trends' && trendsData && (
+          <div className="tab-content">
+            <div className="admin-section">
+              <h3>AI Usage Trends</h3>
+              <div className="admin-stats-grid">
+                <div className="admin-stat-card">
+                  <h4>Conversation Growth</h4>
+                  <div className="admin-stat-value">
+                    {trendsData.insights?.conversationGrowthRate || 0}%
                   </div>
                 </div>
-              ))}
+                <div className="admin-stat-card">
+                  <h4>Message Growth</h4>
+                  <div className="admin-stat-value">
+                    {trendsData.insights?.messageGrowthRate || 0}%
+                  </div>
+                </div>
+                <div className="admin-stat-card">
+                  <h4>Top Mode</h4>
+                  <div className="admin-stat-value">
+                    {trendsData.insights?.topMode || 'N/A'}
+                  </div>
+                </div>
+                <div className="admin-stat-card">
+                  <h4>Analysis Quality</h4>
+                  <div className="admin-stat-value">
+                    {trendsData.summary?.analysisQuality || 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Trends Charts Placeholder */}
+            <div className="admin-section">
+              <h3>Time Series Data</h3>
+              <div className="trends-summary">
+                <p>Conversation data points: {trendsData.series?.conversations?.length || 0}</p>
+                <p>Message data points: {trendsData.series?.messages?.length || 0}</p>
+                <p>Token data points: {trendsData.series?.tokens?.length || 0}</p>
+                <p>Time range: {trendsData.dateRange?.start} to {trendsData.dateRange?.end}</p>
+              </div>
             </div>
           </div>
         )}
       </div>
     </div>
   );
-};
-
-// Helper functions
-const getAIModeIcon = (mode) => {
-  const iconMap = {
-    'conversational': 'fas fa-comments',
-    'task-oriented': 'fas fa-tasks',
-    'creative': 'fas fa-palette',
-    'analytical': 'fas fa-chart-line',
-    'educational': 'fas fa-graduation-cap',
-    'technical': 'fas fa-cog'
-  };
-  return iconMap[mode] || 'fas fa-brain';
-};
-
-const formatModeName = (mode) => {
-  if (!mode) return 'Unknown';
-  return mode.split('-').map(word => 
-    word.charAt(0).toUpperCase() + word.slice(1)
-  ).join(' ');
 };
 
 export default AdminAIAnalytics; 
