@@ -56,7 +56,7 @@ const AdminLogin = () => {
         <div className="admin-login-card">
           <div className="admin-login-header">
             <h1>Admin Portal</h1>
-            <p>MacroMind Administration</p>
+            <p>MacroMebit Administration</p>
           </div>
 
           <form onSubmit={handleSubmit} className="admin-login-form">

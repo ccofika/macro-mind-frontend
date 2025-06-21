@@ -159,7 +159,7 @@ const AdminDashboard = () => {
             {sidebarExpanded && (
               <div className="logo-text">
                 <h2>Admin Panel</h2>
-                <p>MacroMind Control Center</p>
+                <p>MacroMebit Control Center</p>
               </div>
             )}
           </div>

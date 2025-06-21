@@ -57,7 +57,7 @@ const Login = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>Login to MacroMind</h2>
+                      <h2>Login to MacroMebit</h2>
         
         {suspendedMessage && (
           <div className="auth-error auth-suspended">
@@ -119,9 +119,9 @@ const Login = () => {
           />
         </div>
         
-        <div className="auth-footer">
+        {/*<div className="auth-footer">
           <p>Don't have an account? <Link to="/register">Register</Link></p>
-        </div>
+        </div>*/}
       </div>
     </div>
   );

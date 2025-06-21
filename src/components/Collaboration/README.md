@@ -1,6 +1,6 @@
 # Real-Time Collaboration Features
 
-This directory contains components for the real-time collaboration system in MacroMind. These components enable multiple users to work together on the same canvas in real-time.
+This directory contains components for the real-time collaboration system in MacroMebit. These components enable multiple users to work together on the same canvas in real-time.
 
 ## Components
 
