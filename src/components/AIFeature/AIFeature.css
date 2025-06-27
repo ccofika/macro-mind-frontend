@@ -46,7 +46,7 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
-  font-size: var(--font-size-sm);
+  font-size: 30px;
   padding: var(--space-md) var(--space-lg);
   transition: all var(--transition-normal);
   font-family: inherit;
@@ -240,9 +240,10 @@
 .ai-response-content {
   padding: var(--space-xl);
   color: var(--text-primary);
-  font-size: var(--font-size-sm);
+  font-size: 25px;
   line-height: 1.6;
-  max-height: 300px;
+  min-height: 60px;
+  max-height: 80vh;
   overflow-y: auto;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -357,7 +358,7 @@
   
   .ai-response-content {
     padding: var(--space-lg);
-    max-height: 200px;
+    max-height: 70vh;
   }
   
   .ai-response-actions {

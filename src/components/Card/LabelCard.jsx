@@ -125,6 +125,23 @@ const LabelCard = ({
     }
   }, [card.fontSize]);
 
+  // Handle click outside to exit editing mode
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isEditing && textRef.current && !textRef.current.contains(event.target)) {
+        setIsEditing(false);
+      }
+    };
+
+    if (isEditing) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isEditing]);
+
   const cardStyle = {
     transform: `translate(${position.x}px, ${position.y}px)`,
     zIndex: isDragging || isSelected || isHovered ? 20 : 10,
@@ -155,6 +172,11 @@ const LabelCard = ({
               handleTextBlur();
             }
           }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              handleTextBlur();
+            }
+          }}
           className="label-input"
           style={{ fontSize: `${fontSize}px` }}
           onMouseDown={(e) => e.stopPropagation()}
@@ -162,7 +184,7 @@ const LabelCard = ({
       ) : (
         <div
           className="label-text"
-          onClick={handleTextClick}
+          onDoubleClick={handleTextClick}
           style={{ fontSize: `${fontSize}px` }}
         >
           {card.title}

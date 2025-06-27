@@ -19,14 +19,14 @@
 /* Base Card Container */
 .card {
   position: absolute;
-  width: 320px;
-  min-height: 140px;
+  width: 420px;
+  min-height: 180px;
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
-  padding: var(--space-xl);
+  padding: var(--space-2xl);
   cursor: move;
   user-select: none;
   transition: box-shadow var(--transition-slow), border-color var(--transition-slow), background var(--transition-slow);
@@ -173,7 +173,7 @@
 /* Card Title */
 .card-title {
   font-weight: var(--font-weight-semibold);
-  font-size: calc(var(--font-size-lg) * 1.9);
+  font-size: calc(var(--font-size-xl) * 1.8);
   color: var(--text-primary);
   margin: 0;
   flex: 1;
@@ -183,7 +183,7 @@
 }
 
 .card.expanded .card-title {
-  font-size: calc(var(--font-size-xl) * 1.6);
+  font-size: calc(var(--font-size-2xl) * 1.6);
   font-weight: var(--font-weight-bold);
 }
 
@@ -192,9 +192,9 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-size: var(--font-size-lg);
+  font-size: calc(var(--font-size-xl) * 1.2);
   font-weight: var(--font-weight-semibold);
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
   width: 100%;
   font-family: inherit;
   transition: all var(--transition-normal);
@@ -256,9 +256,9 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
-  font-size: calc(var(--font-size-base) * 1.4);
+  font-size: calc(var(--font-size-lg) * 1.8);
   line-height: 1.5;
-  padding: var(--space-lg);
+  padding: var(--space-xl);
   resize: none;
   font-family: inherit;
   transition: all var(--transition-normal);
@@ -311,7 +311,7 @@
 
 .content-preview {
   color: var(--text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: calc(var(--font-size-base) * 1.2);
   line-height: 1.5;
   word-break: break-word;
 }
@@ -332,12 +332,12 @@
 
 .card-actions button {
   flex: 1;
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
   background: var(--surface-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: calc(var(--font-size-base) * 1.1);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: all var(--transition-slow);
@@ -526,25 +526,26 @@ textarea:disabled {
 /* Responsive Design */
 @media (max-width: 768px) {
   .card {
-    width: 280px;
+    width: 350px;
+    min-height: 160px;
     padding: var(--space-lg);
   }
   
   .card.expanded {
     width: 95vw;
-    max-width: none;
+    max-width: 95vw;
   }
   
   .card-header {
-    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
   }
   
   .card-title {
-    font-size: var(--font-size-base);
+    font-size: calc(var(--font-size-lg) * 1.4);
   }
   
   .card-actions {
-    flex-direction: column;
+    gap: var(--space-sm);
   }
   
   .card-actions button span {
