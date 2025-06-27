@@ -111,14 +111,6 @@ const InvitationNotifications = () => {
     }
   };
 
-  console.log('InvitationNotifications render:', { 
-    isLoading, 
-    invitationsCount: invitations.length, 
-    currentUser: !!currentUser,
-    error,
-    invitations: invitations.map(inv => ({ id: inv._id, spaceName: inv.space?.name }))
-  });
-
   // Always show the container to ensure visibility for debugging
   if (isLoading) {
     return (
@@ -153,7 +145,6 @@ const InvitationNotifications = () => {
 
   // Show empty state for debugging (instead of returning null)
   if (invitations.length === 0) {
-    console.log('No invitations to display - showing debug state');
     return (
       <div className="invitation-notifications-container">
         <div className="empty-state">

@@ -107,7 +107,6 @@ class WebSocketService {
         this.socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('WebSocket: Received message:', data.type);
             this.handleMessage(data);
           } catch (error) {
             console.error('WebSocket: Error parsing message:', error);
@@ -345,21 +344,15 @@ class WebSocketService {
    * @param {Object} data - Event data
    */
   emit(event, data) {
-    console.log(`WebSocket: Emitting event '${event}' with data:`, data);
-    console.log(`WebSocket: Has listeners for '${event}':`, this.eventListeners.has(event));
     if (this.eventListeners.has(event)) {
       const listeners = this.eventListeners.get(event);
-      console.log(`WebSocket: Number of listeners for '${event}':`, listeners.length);
       listeners.forEach((callback, index) => {
         try {
-          console.log(`WebSocket: Calling listener ${index} for '${event}'`);
           callback(data);
         } catch (error) {
-          console.error(`WebSocket: Error in event listener for ${event}:`, error);
         }
       });
     } else {
-      console.warn(`WebSocket: No listeners registered for event '${event}'`);
     }
   }
   
@@ -514,23 +507,13 @@ class WebSocketService {
       return;
     }
 
-    console.log('WebSocketService: Notifying card updated:', {
-      cardId: card.id,
-      cardTitle: card.title,
-      cardPosition: card.position,
-      currentSpaceId: this.currentSpaceId
-    });
+   
 
     const success = this.send({
       type: 'card:updated',
       card: card
     });
     
-    if (!success) {
-      console.error('WebSocketService: Failed to send card updated notification');
-    } else {
-      console.log('WebSocketService: Card updated notification sent successfully');
-    }
   }
 
   /**

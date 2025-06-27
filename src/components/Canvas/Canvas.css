@@ -57,6 +57,36 @@
   background-size: 20px 20px;
 }
 
+/* Selection Rectangle for Drag Selection */
+.selection-rectangle {
+  position: absolute;
+  border: 2px dashed var(--text-accent);
+  background: rgba(74, 158, 255, 0.08);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  z-index: 1000;
+  animation: selectionPulse 2s ease-in-out infinite;
+  backdrop-filter: blur(4px);
+  box-shadow: 
+    0 0 20px rgba(74, 158, 255, 0.2),
+    inset 0 0 20px rgba(74, 158, 255, 0.1);
+}
+
+@keyframes selectionPulse {
+  0%, 100% { 
+    border-color: var(--text-accent);
+    box-shadow: 
+      0 0 20px rgba(74, 158, 255, 0.2),
+      inset 0 0 20px rgba(74, 158, 255, 0.1);
+  }
+  50% { 
+    border-color: rgba(74, 158, 255, 0.6);
+    box-shadow: 
+      0 0 30px rgba(74, 158, 255, 0.3),
+      inset 0 0 30px rgba(74, 158, 255, 0.15);
+  }
+}
+
 /* Subtle Gradient Overlay */
 .canvas::after {
   content: '';

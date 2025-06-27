@@ -98,6 +98,28 @@ const KeyboardShortcutsHelp = () => {
             </div>
           </div>
         </div>
+
+        <div className="shortcuts-help-section">
+          <h4>Selection</h4>
+          <div className="shortcuts-help-grid">
+            <div className="shortcut">
+              <span className="key">Click</span>
+              <span className="description">Select single card</span>
+            </div>
+            <div className="shortcut">
+              <span className="key">Shift + Click</span>
+              <span className="description">Multi-select cards</span>
+            </div>
+            <div className="shortcut">
+              <span className="key">Shift + Drag</span>
+              <span className="description">Drag to select multiple cards</span>
+            </div>
+            <div className="shortcut">
+              <span className="key">Esc</span>
+              <span className="description">Clear selection</span>
+            </div>
+          </div>
+        </div>
         
         <div className="shortcuts-help-section">
           <h4>Performance</h4>

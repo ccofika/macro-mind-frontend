@@ -243,7 +243,6 @@ export const CollaborationProvider = ({ children }) => {
     
     // Card lock/unlock events
     const handleCardLock = (data) => {
-      console.log('Collaboration: Card locked:', data);
       setLockedCards(prev => {
         const newLocked = new Map(prev);
         newLocked.set(data.cardId, {
@@ -256,7 +255,6 @@ export const CollaborationProvider = ({ children }) => {
     };
     
     const handleCardUnlock = (data) => {
-      console.log('Collaboration: Card unlocked:', data);
       setLockedCards(prev => {
         const newLocked = new Map(prev);
         newLocked.delete(data.cardId);
@@ -266,7 +264,6 @@ export const CollaborationProvider = ({ children }) => {
     
     // Card selection events
     const handleCardSelected = (data) => {
-      console.log('Collaboration: Card selected:', data);
       setSelectedCards(prev => {
         const newSelected = new Map(prev);
         newSelected.set(data.userId, data.cardId);
@@ -275,7 +272,6 @@ export const CollaborationProvider = ({ children }) => {
     };
     
     const handleCardDeselected = (data) => {
-      console.log('Collaboration: Card deselected:', data);
       setSelectedCards(prev => {
         const newSelected = new Map(prev);
         newSelected.delete(data.userId);
@@ -285,10 +281,8 @@ export const CollaborationProvider = ({ children }) => {
     
     // Users list event
     const handleUsersList = (data) => {
-      console.log('Collaboration: handleUsersList received data:', data);
       
       if (!data) {
-        console.warn('Collaboration: Users list received null/undefined data');
         setActiveUsers([]);
         return;
       }
@@ -297,13 +291,10 @@ export const CollaborationProvider = ({ children }) => {
       if (Array.isArray(data)) {
         // Normal case: array of users
         users = data;
-        console.log('Collaboration: Users list received (array):', data.length, 'users');
       } else if (typeof data === 'object' && data.id) {
         // Edge case: single user object - wrap it in array
         users = [data];
-        console.log('Collaboration: Users list received (single user):', data.name || data.id);
       } else {
-        console.warn('Collaboration: Users list received invalid data format:', typeof data, data);
         setActiveUsers([]);
         return;
       }
@@ -319,14 +310,11 @@ export const CollaborationProvider = ({ children }) => {
         cursorPosition: user.cursor || { x: 0, y: 0 } // For CursorTrail component
       }));
       
-      console.log('Collaboration: Setting active users:', validUsers.length, 'valid users');
-      console.log('Collaboration: Users details:', validUsers.map(u => ({ id: u.id, name: u.name, color: u.color })));
       setActiveUsers(validUsers);
     };
     
     // Locks list event (when joining a space)
     const handleLocksList = (data) => {
-      console.log('Collaboration: Received locks list:', data);
       const lockMap = new Map();
       
       data.forEach(lock => {
@@ -338,12 +326,10 @@ export const CollaborationProvider = ({ children }) => {
       });
       
       setLockedCards(lockMap);
-      console.log('Collaboration: Applied lock states for', lockMap.size, 'cards');
     };
     
     // Selections list event (when joining a space)
     const handleSelectionsList = (data) => {
-      console.log('Collaboration: Received selections list:', data);
       const selectionMap = new Map();
       
       data.forEach(selection => {
@@ -351,13 +337,10 @@ export const CollaborationProvider = ({ children }) => {
       });
       
       setSelectedCards(selectionMap);
-      console.log('Collaboration: Applied selection states for', selectionMap.size, 'users');
     };
 
     // Space joined event
     const handleSpaceJoined = (data) => {
-      console.log('Collaboration: handleSpaceJoined called with data:', data);
-      console.log('Collaboration: Joined space:', data.name);
       const spaceData = {
         id: data.spaceId,
         name: data.name,
@@ -366,52 +349,41 @@ export const CollaborationProvider = ({ children }) => {
       setCurrentSpace(spaceData);
       
       // Clear users list and selections when joining new space - will be repopulated by users:list event
-      console.log('Collaboration: Clearing active users and selections for new space');
       setActiveUsers([]);
       setCursorPositions(new Map());
       setLockedCards(new Map());
       setSelectedCards(new Map());
       
       // Sync with CardContext if callback is available
-      console.log('Collaboration: Syncing with CardContext', { 
-        hasCallback: !!cardContextSyncCallbackRef.current, 
-        spaceId: spaceData.id 
-      });
+      
       if (cardContextSyncCallbackRef.current) {
         cardContextSyncCallbackRef.current(spaceData.id);
-        console.log('Collaboration: CardContext sync callback called');
       }
     };
     
     // Connection close event
     const handleClose = () => {
-      console.log('Collaboration: Connection closed');
       setIsConnected(false);
     };
     
     // Card creation, update, deletion, and connection handlers
     const handleCardCreated = (data) => {
-      console.log('Collaboration: Card created by user:', data.userName, 'in space:', data.card.spaceId);
       // Note: Actual card state is managed by CardContext
     };
 
     const handleCardUpdated = (data) => {
-      console.log('Collaboration: Card updated by user:', data.userName, 'in space:', data.card.spaceId);
       // Note: Actual card state is managed by CardContext
     };
 
     const handleCardDeleted = (data) => {
-      console.log('Collaboration: Card deleted by user:', data.userName);
       // Note: Actual card state is managed by CardContext
     };
 
     const handleConnectionCreated = (data) => {
-      console.log('Collaboration: Connection created by user:', data.userName, 'in space:', data.connection.spaceId);
       // Note: Actual connection state is managed by CardContext
     };
 
     const handleConnectionDeleted = (data) => {
-      console.log('Collaboration: Connection deleted by user:', data.userName);
       // Note: Actual connection state is managed by CardContext
     };
 
@@ -471,16 +443,12 @@ export const CollaborationProvider = ({ children }) => {
   
   // Space management functions
   const joinSpace = useCallback((spaceId) => {
-    console.log('Collaboration: Joining space:', spaceId);
     if (!isConnected) {
-      console.warn('Collaboration: Not connected, cannot join space');
       // Try to reconnect if not connected
       if (currentUser) {
         websocketService.connect().then(() => {
-          console.log('Collaboration: Reconnected, trying to join space again');
           websocketService.joinSpace(spaceId);
         }).catch(error => {
-          console.error('Collaboration: Failed to reconnect:', error);
           setError('Failed to connect to collaboration server');
         });
       }

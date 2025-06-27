@@ -316,8 +316,19 @@ export const CardProvider = ({ children }) => {
       return null;
     }
     
-    const title = type === 'category' ? 'New Category' : 'New Answer';
-    const content = type === 'answer' ? '' : null;
+    let title, content, fontSize;
+    
+    if (type === 'category') {
+      title = 'New Category';
+      content = null;
+    } else if (type === 'label') {
+      title = 'New Label';
+      content = null;
+      fontSize = 16;
+    } else {
+      title = 'New Answer';
+      content = '';
+    }
     
     const newCard = {
       id: uuidv4(),
@@ -330,6 +341,11 @@ export const CardProvider = ({ children }) => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+    
+    // Add fontSize for label cards
+    if (type === 'label') {
+      newCard.fontSize = fontSize;
+    }
     
     setCards(prevCards => [...prevCards, newCard]);
     addToHistory([...cards, newCard], connections);
@@ -365,6 +381,12 @@ export const CardProvider = ({ children }) => {
   const createAnswerCard = useCallback((title, content, screenPosition) => {
     const canvasPosition = screenToCanvas ? screenToCanvas(screenPosition) : screenPosition;
     return createCard('answer', canvasPosition);
+  }, [createCard, screenToCanvas]);
+
+  // Create label card
+  const createLabelCard = useCallback((title, screenPosition) => {
+    const canvasPosition = screenToCanvas ? screenToCanvas(screenPosition) : screenPosition;
+    return createCard('label', canvasPosition);
   }, [createCard, screenToCanvas]);
 
   // Update card
@@ -428,7 +450,6 @@ export const CardProvider = ({ children }) => {
             const latestCard = currentCards.find(card => card.id === cardId);
             if (latestCard) {
               const updatedCard = { ...latestCard, ...cardUpdates, updatedAt: new Date().toISOString() };
-              console.log('CardContext: Sending debounced card update:', cardId, cardUpdates);
               websocketService.notifyCardUpdated(updatedCard);
             }
             return currentCards; // No state change needed
@@ -442,46 +463,127 @@ export const CardProvider = ({ children }) => {
     updateCardDebounced.debouncedFunctions.get(id)(id, updates);
   }, []); // Remove cards dependency to avoid recreating functions
 
-  // Move card - optimized for instant local updates
+  // Move card - FIXED for perfect multi-card dragging
   const moveCard = useCallback((id, position, isRealTime = false) => {
-    // INSTANT local state update - no delays
-    setCards(prevCards => {
-      const updatedCards = prevCards.map(card => 
-        card.id === id 
-          ? { ...card, position } 
-          : card
-      );
+    // Check if this is a multi-card drag
+    const isMultiCardDrag = selectedCardIds.length > 1 && selectedCardIds.includes(id);
+    
+    if (isMultiCardDrag) {
+      // ===== MULTI-CARD DRAG - FIXED APPROACH =====
+      console.log('CardContext: Multi-card drag - setting absolute positions');
       
-      // Send network updates immediately for real-time dragging
+      // Store the initial positions when drag starts if not already stored
+      if (!moveCard.initialPositions) {
+        moveCard.initialPositions = new Map();
+        selectedCardIds.forEach(cardId => {
+          const card = cards.find(c => c.id === cardId);
+          if (card) {
+            moveCard.initialPositions.set(cardId, { ...card.position });
+          }
+        });
+        
+        // Store the initial position of the dragged card
+        const draggedCard = cards.find(card => card.id === id);
+        if (draggedCard) {
+          moveCard.draggedCardInitialPos = { ...draggedCard.position };
+        }
+      }
+      
+      // Calculate delta from the initial position of the dragged card
+      const deltaX = position.x - moveCard.draggedCardInitialPos.x;
+      const deltaY = position.y - moveCard.draggedCardInitialPos.y;
+      
+      // Update positions of ALL selected cards based on their initial positions
+      setCards(prevCards => {
+        return prevCards.map(card => {
+          if (selectedCardIds.includes(card.id)) {
+            const initialPos = moveCard.initialPositions.get(card.id);
+            if (initialPos) {
+              return {
+                ...card,
+                position: {
+                  x: initialPos.x + deltaX,
+                  y: initialPos.y + deltaY
+                }
+              };
+            }
+          }
+          return card;
+        });
+      });
+      
+      // Send network updates for all selected cards (throttled)
       if (isRealTime) {
-        // Create throttled websocket update function per card
+        selectedCardIds.forEach(cardId => {
+          if (!moveCard.throttledUpdates) {
+            moveCard.throttledUpdates = new Map();
+          }
+          
+          if (!moveCard.throttledUpdates.has(cardId)) {
+            moveCard.throttledUpdates.set(cardId, throttle((cId, newPos) => {
+              const updatedCard = { 
+                id: cId,
+                position: newPos,
+                updatedAt: new Date().toISOString() 
+              };
+              websocketService.notifyCardUpdated(updatedCard);
+            }, 50));
+          }
+          
+          const initialPos = moveCard.initialPositions.get(cardId);
+          if (initialPos) {
+            const newPos = {
+              x: initialPos.x + deltaX,
+              y: initialPos.y + deltaY
+            };
+            moveCard.throttledUpdates.get(cardId)(cardId, newPos);
+          }
+        });
+      }
+    } else {
+      // ===== SINGLE CARD DRAG =====
+      setCards(prevCards => {
+        return prevCards.map(card => 
+          card.id === id 
+            ? { ...card, position } 
+            : card
+        );
+      });
+      
+      // Send network update for single card (throttled)
+      if (isRealTime) {
         if (!moveCard.throttledUpdates) {
           moveCard.throttledUpdates = new Map();
         }
         
         if (!moveCard.throttledUpdates.has(id)) {
           moveCard.throttledUpdates.set(id, throttle((cardId, pos) => {
-            // Find the latest card data for network update
-            const currentCard = updatedCards.find(c => c.id === cardId);
-            if (currentCard) {
-              const updatedCard = { ...currentCard, position: pos, updatedAt: new Date().toISOString() };
-              websocketService.notifyCardUpdated(updatedCard);
-            }
-          }, 50)); // Faster network updates - 20fps instead of 10fps
+            const updatedCard = { 
+              id: cardId,
+              position: pos,
+              updatedAt: new Date().toISOString() 
+            };
+            websocketService.notifyCardUpdated(updatedCard);
+          }, 50));
         }
         
         moveCard.throttledUpdates.get(id)(id, position);
       }
-      
-      return updatedCards;
-    });
-  }, []); // No dependencies to avoid recreating function
+    }
+  }, [selectedCardIds, cards]);
 
   // Finalize move (add to history and update server)
   const finalizeMoveCard = useCallback(async () => {
     // Clear all throttled updates to allow network updates again
     if (moveCard.throttledUpdates) {
       moveCard.throttledUpdates.clear();
+    }
+    
+    // Clear stored initial positions for multi-card drag
+    if (moveCard.initialPositions) {
+      moveCard.initialPositions.clear();
+      moveCard.initialPositions = null;
+      moveCard.draggedCardInitialPos = null;
     }
     
     // Get current state and add to history
@@ -502,12 +604,10 @@ export const CardProvider = ({ children }) => {
             position: card.position
           }));
           
-          console.log(`CardContext: Sending ${positions.length} card positions to server:`, positions);
           
           // Update positions on server only (websocket already sent during drag)
           try {
             const result = await cardApi.updateCardPositions(positions);
-            console.log("Card positions saved successfully:", result);
           } catch (err) {
             console.error("Failed to update card positions on server:", err);
           }
@@ -600,26 +700,31 @@ export const CardProvider = ({ children }) => {
     }
   }, [cards, connections, addToHistory]);
 
-  // Handle card selection
+  // Handle card selection - SIMPLIFIED
   const selectCard = useCallback((id, isMultiSelect = false) => {
-    // Use collaboration system for card selection
-    if (collaborationSelectCard && !isMultiSelect) {
-      // Single selection through collaboration system
-      collaborationSelectCard(id);
-      setSelectedCardIds([id]);
-    } else {
-      // Fallback to local selection for multi-select or when collaboration is not available
+    console.log('CardContext: selectCard called', { id, isMultiSelect, currentSelection: selectedCardIds });
+    
+    if (isMultiSelect) {
+      // Multi-selection - toggle card in selection
       setSelectedCardIds(prev => {
-        if (isMultiSelect) {
-          return prev.includes(id) 
-            ? prev.filter(cardId => cardId !== id) // Deselect if already selected
-            : [...prev, id]; // Add to selection
-        } else {
-          return [id]; // Single selection
-        }
+        const newSelection = prev.includes(id) 
+          ? prev.filter(cardId => cardId !== id) // Remove if already selected
+          : [...prev, id]; // Add if not selected
+        
+        console.log('CardContext: Multi-select result:', newSelection);
+        return newSelection;
       });
+    } else {
+      // Single selection - replace current selection
+      setSelectedCardIds([id]);
+      console.log('CardContext: Single select result:', [id]);
+      
+      // Use collaboration system for single selection
+      if (collaborationSelectCard) {
+        collaborationSelectCard(id);
+      }
     }
-  }, [collaborationSelectCard]);
+  }, [selectedCardIds, collaborationSelectCard]);
 
   // Clear selection
   const clearSelection = useCallback(() => {
@@ -732,6 +837,7 @@ export const CardProvider = ({ children }) => {
     createCard,
     createCategoryCard,
     createAnswerCard,
+    createLabelCard,
     updateCard,
     updateCardDebounced,
     moveCard,

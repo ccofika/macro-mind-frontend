@@ -21,6 +21,7 @@ import CardLock from '../Collaboration/CardLock';
 // Lazy load card components
 const CategoryCard = lazy(() => import('../Card/CategoryCard'));
 const AnswerCard = lazy(() => import('../Card/AnswerCard'));
+const LabelCard = lazy(() => import('../Card/LabelCard'));
 
 // Constants
 const BUFFER_SIZE = 700; // Buffer for card visibility
@@ -28,12 +29,25 @@ const RENDER_THROTTLE = 16; // ~60fps
 
 // Placeholder component for cards during zooming
 const CardPlaceholder = ({ position, type }) => {
+  let width = '280px';
+  let height = '160px';
+  let background = 'rgba(255, 158, 74, 0.2)';
+  
+  if (type === 'category') {
+    height = '120px';
+    background = 'rgba(74, 158, 255, 0.2)';
+  } else if (type === 'label') {
+    width = '120px';
+    height = '40px';
+    background = 'rgba(139, 69, 255, 0.2)';
+  }
+  
   const style = {
     position: 'absolute',
-    width: '280px',
-    height: type === 'category' ? '120px' : '160px',
+    width,
+    height,
     transform: `translate(${position.x}px, ${position.y}px)`,
-    background: type === 'category' ? 'rgba(74, 158, 255, 0.2)' : 'rgba(255, 158, 74, 0.2)',
+    background,
     borderRadius: '8px',
     boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
     border: '1px solid rgba(255, 255, 255, 0.1)'
@@ -64,7 +78,8 @@ const Canvas = () => {
     setCurrentSpace,
     currentSpaceId,
     connectMode,
-    setConnectMode
+    setConnectMode,
+    selectCard
   } = useCards();
   
   const { 
@@ -84,8 +99,7 @@ const Canvas = () => {
   
   const { currentUser } = useContext(AuthContext);
   
-  // Connect mode is now managed in CardContext
-  // const [connectMode, setConnectMode] = useState(false);
+  // Connect mode state
   const [connectSource, setConnectSource] = useState(null);
   const [connectTarget, setConnectTarget] = useState(null);
   const [hoveredCardId, setHoveredCardId] = useState(null);
@@ -95,15 +109,25 @@ const Canvas = () => {
   const [isHighPerformanceMode, setIsHighPerformanceMode] = useState(false);
   const [showCollaborationUI, setShowCollaborationUI] = useState(true);
   
-  // Panning state - improved implementation
+  // Panning state
   const [isPanning, setIsPanning] = useState(false);
-  const panningRef = useRef({
+  const panStateRef = useRef({
     isPanning: false,
     startX: 0,
     startY: 0,
     lastX: 0,
-    lastY: 0,
-    animationFrame: null
+    lastY: 0
+  });
+  
+  // ===== NEW DRAG SELECTION STATE =====
+  const [isDragSelecting, setIsDragSelecting] = useState(false);
+  const [dragSelectionRect, setDragSelectionRect] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const dragSelectionRef = useRef({
+    isSelecting: false,
+    startScreenX: 0,
+    startScreenY: 0,
+    startCanvasX: 0,
+    startCanvasY: 0
   });
   
   const [showMiniMap, setShowMiniMap] = useState(true);
@@ -132,10 +156,10 @@ const Canvas = () => {
   // Initialize zoom and pan functionality
   const zoomHandlers = useZoomAndPan(canvasRef);
 
-  // Listen for keyboard shortcuts
+  // ===== KEYBOARD SHORTCUTS =====
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Skip shortcuts if any input field is active OR if event originated from an input
+      // Skip shortcuts if any input field is active
       const eventFromInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) ||
                            e.target.isContentEditable ||
                            e.target.contentEditable === 'true' ||
@@ -163,6 +187,18 @@ const Canvas = () => {
         setConnectMode(prev => !prev);
       }
       
+      // Escape key - context-sensitive
+      if (e.key === 'Escape') {
+        if (connectMode) {
+          setConnectMode(false);
+          setConnectSource(null);
+          setConnectTarget(null);
+        } else if (selectedCardIds.length > 0) {
+          // Clear selection if cards are selected
+          clearSelection();
+        }
+      }
+      
       // Toggle high-performance mode with 'h' key
       if (e.key === 'h') {
         setIsHighPerformanceMode(prev => !prev);
@@ -178,174 +214,31 @@ const Canvas = () => {
         setShowOffscreenPointers(prev => !prev);
       }
       
-      // Toggle collaboration UI with 'u' key
-      if (e.key === 'u') {
-        setShowCollaborationUI(prev => !prev);
+      // Delete selected cards with Delete or Backspace
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCardIds.length > 0) {
+        e.preventDefault();
+        deleteSelectedCards();
       }
     };
-    
+
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [connectMode, selectedCardIds, clearSelection, deleteSelectedCards, setConnectMode]);
 
-  // Reset connection state when toggling connect mode
-  useEffect(() => {
-    if (!connectMode && connectSource) {
-      setConnectSource(null);
-      setConnectTarget(null);
-    }
-  }, [connectMode, connectSource]);
-  
-  // Enhanced panning implementation
-  useEffect(() => {
+  // ===== MOUSE EVENT HANDLERS =====
+  const handleCanvasMouseDown = useCallback((e) => {
+    if (e.button !== 0) return; // Only left mouse button
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
-
-    // Handle mouse down for panning
-    const handleMouseDown = (e) => {
-      // Only handle left mouse button
-      if (e.button !== 0) return;
-      
-      // Check if the click is on the canvas background or grid
-      const isCanvasBackground = e.target === canvas || 
-                                e.target.classList.contains('grid-background') ||
-                                e.target.classList.contains('canvas');
-      
-      // Don't pan if clicking on cards or interactive elements
-      const isInteractiveElement = e.target.closest('.card') || 
-                                  e.target.closest('.action-bar') ||
-                                  e.target.closest('.zoom-controls') ||
-                                  e.target.closest('.connect-mode-indicator') ||
-                                  e.target.closest('.spaces-sidebar') ||
-                                  e.target.closest('.active-users') ||
-                                  e.target.closest('button') ||
-                                  e.target.closest('input') ||
-                                  e.target.closest('svg');
-      
-      if (isCanvasBackground && !isInteractiveElement) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Start panning
-        setIsPanning(true);
-        panningRef.current.isPanning = true;
-        panningRef.current.startX = e.clientX;
-        panningRef.current.startY = e.clientY;
-        panningRef.current.lastX = e.clientX;
-        panningRef.current.lastY = e.clientY;
-        
-        // Update cursor
-        canvas.style.cursor = 'grabbing';
-        setIsDragging(true);
-      }
-    };
-
-    // Handle mouse move for panning
-    const handleMouseMove = (e) => {
-      // Send cursor position to collaboration service
-      if (isConnected && screenToCanvas) {
-        const canvasPos = screenToCanvas({ x: e.clientX, y: e.clientY });
-        updateCursorPosition(canvasPos.x, canvasPos.y);
-      }
-      
-      if (!panningRef.current.isPanning) return;
-      
-      e.preventDefault();
-      
-      // Cancel previous animation frame if exists
-      if (panningRef.current.animationFrame) {
-        cancelAnimationFrame(panningRef.current.animationFrame);
-      }
-      
-      // Use requestAnimationFrame for smooth updates
-      panningRef.current.animationFrame = requestAnimationFrame(() => {
-        const dx = e.clientX - panningRef.current.lastX;
-        const dy = e.clientY - panningRef.current.lastY;
-        
-        // Apply panning
-        handlePan(dx, dy);
-        
-        // Update last position
-        panningRef.current.lastX = e.clientX;
-        panningRef.current.lastY = e.clientY;
-        
-        // Throttle rendering updates
-        throttleRender();
-      });
-    };
-
-    // Handle mouse up to end panning
-    const handleMouseUp = (e) => {
-      if (panningRef.current.isPanning) {
-        setIsPanning(false);
-        panningRef.current.isPanning = false;
-        setIsDragging(false);
-        
-        // Reset cursor
-        canvas.style.cursor = 'grab';
-        
-        // Cancel animation frame if exists
-        if (panningRef.current.animationFrame) {
-          cancelAnimationFrame(panningRef.current.animationFrame);
-          panningRef.current.animationFrame = null;
-        }
-        
-        // Force one final render
-        setForceUpdate(prev => prev + 1);
-      }
-    };
-
-    // Handle mouse leave to end panning
-    const handleMouseLeave = () => {
-      if (panningRef.current.isPanning) {
-        handleMouseUp();
-      }
-    };
-
-    // Add event listeners (wheel handling is done by useZoomAndPan hook)
-    canvas.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      canvas.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      canvas.removeEventListener('mouseleave', handleMouseLeave);
-      
-      // Clean up animation frame if exists
-      if (panningRef.current.animationFrame) {
-        cancelAnimationFrame(panningRef.current.animationFrame);
-      }
-      
-      // Clear any pending render timer
-      if (renderTimerRef.current) {
-        clearTimeout(renderTimerRef.current);
-      }
-    };
-  }, [handlePan, setIsDragging, isConnected, updateCursorPosition, screenToCanvas]);
-
-  // Throttle render updates for better performance
-  const throttleRender = useCallback(() => {
-    if (renderTimerRef.current) {
-      return; // Already pending update
-    }
     
-    renderTimerRef.current = setTimeout(() => {
-      setForceUpdate(prev => prev + 1);
-      renderTimerRef.current = null;
-    }, RENDER_THROTTLE);
-  }, []);
-
-  // Click on empty canvas to clear selection
-  const handleCanvasClick = useCallback((e) => {
-    // Only handle clicks on canvas background
-    const isCanvasBackground = e.target === canvasRef.current || 
+    // Check if click is on canvas background
+    const isCanvasBackground = e.target === canvas || 
                               e.target.classList.contains('grid-background') ||
-                              e.target.classList.contains('canvas');
+                              e.target.classList.contains('canvas') ||
+                              e.target.classList.contains('canvas-container');
     
-    // Don't handle clicks on interactive elements
+    // Don't handle if clicking on interactive elements
     const isInteractiveElement = e.target.closest('.card') || 
                                 e.target.closest('.action-bar') ||
                                 e.target.closest('.zoom-controls') ||
@@ -356,369 +249,180 @@ const Canvas = () => {
                                 e.target.closest('input') ||
                                 e.target.closest('svg');
     
-    if (isCanvasBackground && !isInteractiveElement) {
-      clearSelection();
+    if (!isCanvasBackground || isInteractiveElement) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.shiftKey && screenToCanvas) {
+      // ===== START DRAG SELECTION =====
+      console.log('Canvas: Starting drag selection');
       
-      // Double click on empty canvas creates a new category card
-      if (e.detail === 2) {
-        createCategoryCard("New Category", { x: e.clientX, y: e.clientY });
-      }
+      const canvasPos = screenToCanvas({ x: e.clientX, y: e.clientY });
       
-      // Exit connect mode if clicked on empty space
-      if (connectMode) {
-        setConnectSource(null);
-        setConnectTarget(null);
-      }
-    }
-  }, [clearSelection, createCategoryCard, connectMode]);
-
-  // Handle card hover
-  const handleCardHover = useCallback((cardId) => {
-    setHoveredCardId(cardId);
-    
-    // Find related cards through connections
-    const related = new Set();
-    connections.forEach(conn => {
-      if (conn.sourceId === cardId) {
-        related.add(conn.targetId);
-      } else if (conn.targetId === cardId) {
-        related.add(conn.sourceId);
-      }
-    });
-    
-    setRelatedCardIds(related);
-  }, [connections]);
-
-  // Clear hover state
-  const handleCardLeave = useCallback(() => {
-    setHoveredCardId(null);
-    setRelatedCardIds(new Set());
-  }, []);
-
-  // Handle card selection with collaboration
-  const handleCardSelect = useCallback((cardId, isMultiSelect) => {
-    console.log('Canvas: handleCardSelect called for:', cardId, 'isMultiSelect:', isMultiSelect);
-    
-    // Check if card is locked by another user
-    if (isCardLockedByOthers(cardId)) {
-      console.log('Canvas: Card locked by others, cannot select');
-      return; // Cannot select card locked by others
-    }
-    
-    // Use collaboration system for selection (single select only for now)
-    if (!isMultiSelect && collaborationSelectCard) {
-      console.log('Canvas: Selecting card via collaboration');
-      collaborationSelectCard(cardId);
-    }
-    
-    // Update local selection state
-    setSelectedCardIds(prev => {
-      if (isMultiSelect) {
-        return prev.includes(cardId) 
-          ? prev.filter(id => id !== cardId) 
-          : [...prev, cardId];
-      } else {
-        return [cardId];
-      }
-    });
-  }, [isCardLockedByOthers, collaborationSelectCard, setSelectedCardIds]);
-
-  // Handle card deselection with collaboration
-  const handleCardDeselect = useCallback((cardId) => {
-    console.log('Canvas: handleCardDeselect called for:', cardId);
-    
-    // Use collaboration system for deselection
-    if (isCardSelectedByMe(cardId) && collaborationDeselectCard) {
-      console.log('Canvas: Deselecting card via collaboration');
-      collaborationDeselectCard(cardId);
-    }
-    
-    // Update local selection state
-    setSelectedCardIds(prev => prev.filter(id => id !== cardId));
-  }, [setSelectedCardIds, isCardSelectedByMe, collaborationDeselectCard]);
-
-  // Calculate visible area for card virtualization - optimized
-  const isCardVisible = useCallback((cardPosition) => {
-    if (!canvasToScreen) return true;
-    
-    const screenPosition = canvasToScreen(cardPosition);
-    
-    return (
-      screenPosition.x + BUFFER_SIZE >= 0 &&
-      screenPosition.x - BUFFER_SIZE <= window.innerWidth &&
-      screenPosition.y + BUFFER_SIZE >= 0 &&
-      screenPosition.y - BUFFER_SIZE <= window.innerHeight
-    );
-  }, [canvasToScreen]);
-
-  // Memoized visible cards calculation with chunking for large datasets
-  const visibleCards = useMemo(() => {
-    // If we have a lot of cards, use a more efficient filtering approach
-    if (cards.length > 100) {
-      // Create a spatial index for faster lookups (simple quadrant-based approach)
-      const quadrants = {
-        topLeft: [],
-        topRight: [],
-        bottomLeft: [],
-        bottomRight: []
+      setIsDragSelecting(true);
+      dragSelectionRef.current = {
+        isSelecting: true,
+        startScreenX: e.clientX,
+        startScreenY: e.clientY,
+        startCanvasX: canvasPos.x,
+        startCanvasY: canvasPos.y
       };
       
-      // Determine center of screen in canvas coordinates
-      const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight / 2;
-      
-      // Assign cards to quadrants
-      cards.forEach(card => {
-        const screenPos = canvasToScreen ? canvasToScreen(card.position) : card.position;
-        if (screenPos.x < centerX) {
-          if (screenPos.y < centerY) {
-            quadrants.topLeft.push(card);
-          } else {
-            quadrants.bottomLeft.push(card);
-          }
-        } else {
-          if (screenPos.y < centerY) {
-            quadrants.topRight.push(card);
-          } else {
-            quadrants.bottomRight.push(card);
-          }
-        }
+      setDragSelectionRect({
+        x: canvasPos.x,
+        y: canvasPos.y,
+        width: 0,
+        height: 0
       });
       
-      // Only check visibility for cards in potentially visible quadrants
-      const visibleQuadrants = [];
+      canvas.style.cursor = 'crosshair';
+    } else {
+      // ===== START PANNING =====
+      setIsPanning(true);
+      panStateRef.current = {
+        isPanning: true,
+        startX: e.clientX,
+        startY: e.clientY,
+        lastX: e.clientX,
+        lastY: e.clientY
+      };
       
-      if (centerX - BUFFER_SIZE <= centerX) visibleQuadrants.push(quadrants.topLeft, quadrants.bottomLeft);
-      if (centerX + BUFFER_SIZE >= centerX) visibleQuadrants.push(quadrants.topRight, quadrants.bottomRight);
-      
-      // Flatten and filter
-      return visibleQuadrants.flat().filter(card => isCardVisible(card.position));
+      canvas.style.cursor = 'grabbing';
+      setIsDragging(true);
+    }
+  }, [screenToCanvas, setIsDragging]);
+
+  const handleCanvasMouseMove = useCallback((e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    // Send cursor position to collaboration service
+    if (isConnected && screenToCanvas) {
+      const canvasPos = screenToCanvas({ x: e.clientX, y: e.clientY });
+      updateCursorPosition(canvasPos.x, canvasPos.y);
     }
     
-    // For smaller datasets, just filter directly
-    return cards.filter(card => isCardVisible(card.position));
-  }, [cards, isCardVisible, canvasToScreen, forceUpdate]);
-
-  // Memoized visible connections calculation with set-based optimization
-  const visibleConnections = useMemo(() => {
-    // Create a set of visible card IDs for faster lookup
-    const visibleCardIds = new Set(visibleCards.map(card => card.id));
-    
-    return connections.filter(connection => {
-      return visibleCardIds.has(connection.sourceId) || visibleCardIds.has(connection.targetId);
-    });
-  }, [connections, visibleCards]);
-
-  // Calculate transform style for canvas elements - memoized
-  const transformStyle = useMemo(() => {
-    return `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`;
-  }, [zoom, pan.x, pan.y]);
-
-  // Unified connection handler for cards - moved here to fix hoisting issue
-  const handleCardConnection = useCallback((cardId) => {
-    console.log('Canvas: handleCardConnection called', { cardId, connectMode, connectSource });
-    
-    if (!connectMode) {
-      console.log('Canvas: Not in connect mode, ignoring connection attempt');
+    // ===== HANDLE DRAG SELECTION =====
+    if (dragSelectionRef.current.isSelecting && screenToCanvas) {
+      e.preventDefault();
+      
+      const currentCanvasPos = screenToCanvas({ x: e.clientX, y: e.clientY });
+      const { startCanvasX, startCanvasY } = dragSelectionRef.current;
+      
+      const newRect = {
+        x: startCanvasX,
+        y: startCanvasY,
+        width: currentCanvasPos.x - startCanvasX,
+        height: currentCanvasPos.y - startCanvasY
+      };
+      
+      setDragSelectionRect(newRect);
+      console.log('Canvas: Updating drag selection', newRect);
       return;
     }
     
-    if (!connectSource) {
-      // No source selected yet, this card becomes the source
-      console.log('Canvas: No source selected, setting as source:', cardId);
-      setConnectSource(cardId);
-    } else if (connectSource !== cardId) {
-      // Source already selected and this is a different card, create connection
-      console.log('Canvas: Source already selected, creating connection to:', cardId);
-      setConnectTarget(cardId);
-      connectCards(connectSource, cardId);
-      setConnectSource(null);
-      setConnectTarget(null);
-    } else {
-      // Clicking the same card that is already source - deselect it
-      console.log('Canvas: Clicking same source card, deselecting');
-      setConnectSource(null);
-    }
-  }, [connectMode, connectSource, connectCards]);
-
-  // Memoized grid rendering
-  const renderGrid = useMemo(() => {
-    // Skip detailed grid during zooming for performance
-    if (isZooming && isHighPerformanceMode) {
-      return null;
-    }
-    
-    const gridSize = 50;
-    const offsetX = (pan.x % gridSize);
-    const offsetY = (pan.y % gridSize);
-    
-    return (
-      <div 
-        className="grid-background" 
-        style={{ 
-          position: 'absolute', 
-          top: 0, 
-          left: 0, 
-          width: '100%', 
-          height: '100%', 
-          pointerEvents: 'none',
-          backgroundImage: `
-            linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
-          `,
-          backgroundSize: `${gridSize}px ${gridSize}px`,
-          backgroundPosition: `${offsetX}px ${offsetY}px`,
-          opacity: 0.3
-        }}
-      />
-    );
-  }, [pan.x, pan.y, isZooming, isHighPerformanceMode]);
-
-  // Zoom controls
-  const handleZoomIn = useCallback(() => {
-    const center = {
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2
-    };
-    handleZoom(0.3, center);
-  }, [handleZoom]);
-
-  const handleZoomOut = useCallback(() => {
-    const center = {
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2
-    };
-    handleZoom(-0.3, center);
-  }, [handleZoom]);
-
-  const handleResetZoom = useCallback(() => {
-    resetView();
-    throttleRender();
-  }, [resetView, throttleRender]);
-
-  // Render connection lines between cards - memoized
-  const renderedConnections = useMemo(() => {
-    return visibleConnections.map((connection) => {
-      const sourceCard = getCardById(connection.sourceId);
-      const targetCard = getCardById(connection.targetId);
+    // ===== HANDLE PANNING =====
+    if (panStateRef.current.isPanning) {
+      e.preventDefault();
       
-      if (!sourceCard || !targetCard) {
-        return null;
+      const dx = e.clientX - panStateRef.current.lastX;
+      const dy = e.clientY - panStateRef.current.lastY;
+      
+      handlePan(dx, dy);
+      
+      panStateRef.current.lastX = e.clientX;
+      panStateRef.current.lastY = e.clientY;
+    }
+  }, [screenToCanvas, isConnected, updateCursorPosition, handlePan]);
+
+  const handleCanvasMouseUp = useCallback((e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    // ===== END DRAG SELECTION =====
+    if (dragSelectionRef.current.isSelecting) {
+      console.log('Canvas: Ending drag selection');
+      
+      setIsDragSelecting(false);
+      dragSelectionRef.current.isSelecting = false;
+      
+      // Select cards within rectangle if it's large enough
+      const rect = dragSelectionRect;
+      if (Math.abs(rect.width) > 10 || Math.abs(rect.height) > 10) {
+        const cardsInRect = cards.filter(card => {
+          // Skip locked cards
+          if (isCardLockedByOthers(card.id)) return false;
+          
+          // Card dimensions (approximate)
+          const cardWidth = 320;
+          const cardHeight = 160;
+          
+          const cardLeft = card.position.x;
+          const cardTop = card.position.y;
+          const cardRight = card.position.x + cardWidth;
+          const cardBottom = card.position.y + cardHeight;
+          
+          const rectLeft = Math.min(rect.x, rect.x + rect.width);
+          const rectTop = Math.min(rect.y, rect.y + rect.height);
+          const rectRight = Math.max(rect.x, rect.x + rect.width);
+          const rectBottom = Math.max(rect.y, rect.y + rect.height);
+          
+          // Check overlap
+          return !(cardRight < rectLeft || cardLeft > rectRight || 
+                   cardBottom < rectTop || cardTop > rectBottom);
+        });
+        
+        const selectedIds = cardsInRect.map(card => card.id);
+        console.log('Canvas: Selected cards:', selectedIds);
+        setSelectedCardIds(selectedIds);
       }
       
-      // Check if this connection involves hovered card
-      const isHighlighted = 
-        hoveredCardId && 
-        (connection.sourceId === hoveredCardId || connection.targetId === hoveredCardId);
-      
-      return (
-        <CardConnection
-          key={connection.id}
-          sourcePosition={sourceCard.position}
-          targetPosition={targetCard.position}
-          isHighlighted={isHighlighted}
-        />
-      );
-    });
-  }, [visibleConnections, getCardById, hoveredCardId]);
-  
-  // Render cards - memoized
-  const renderedCards = useMemo(() => {
-    if (visibleCards.length === 0) {
-      return null;
+      // Reset
+      setDragSelectionRect({ x: 0, y: 0, width: 0, height: 0 });
+      canvas.style.cursor = 'grab';
+      return;
     }
     
-    // Use simplified placeholders during zooming for performance
-    if (isZooming && isHighPerformanceMode) {
-      return visibleCards.map((card) => (
-        <CardPlaceholder 
-          key={card.id} 
-          position={card.position} 
-          type={card.type} 
-        />
-      ));
+    // ===== END PANNING =====
+    if (panStateRef.current.isPanning) {
+      setIsPanning(false);
+      panStateRef.current.isPanning = false;
+      setIsDragging(false);
+      canvas.style.cursor = 'grab';
     }
-    
-    return visibleCards.map((card) => {
-      const isSelected = selectedCardIds.includes(card.id);
-      const isHovered = card.id === hoveredCardId;
-      const isRelated = relatedCardIds.has(card.id);
-      
-      const cardProps = {
-        card,
-        isSelected,
-        isHovered,
-        isRelated,
-        connectMode,
-        onConnect: handleCardConnection,
-        onHover: handleCardHover,
-        onLeave: handleCardLeave,
-        onSelect: handleCardSelect,
-        onDeselect: handleCardDeselect,
-        isLocked: isCardLockedByOthers(card.id) || isCardLockedByMe(card.id)
-      };
-      
-      const CardComponent = card.type === 'category' ? CategoryCard : AnswerCard;
-      
-      return (
-        <Suspense key={card.id} fallback={<CardPlaceholder position={card.position} type={card.type} />}>
-          <CardComponent {...cardProps} />
-          <CardLock 
-            cardId={card.id} 
-            cardPosition={card.position}
-            cardSize={{ 
-              width: 280, 
-              height: card.type === 'category' ? 120 : 160 
-            }}
-          />
-        </Suspense>
-      );
-    });
-  }, [
-    visibleCards, 
-    selectedCardIds, 
-    hoveredCardId, 
-    relatedCardIds, 
-    connectMode, 
-    handleCardConnection,
-    handleCardHover, 
-    handleCardLeave,
-    handleCardSelect,
-    handleCardDeselect,
-    isZooming,
-    isHighPerformanceMode,
-    isCardLockedByOthers,
-    isCardLockedByMe
-  ]);
+  }, [dragSelectionRect, cards, isCardLockedByOthers, setSelectedCardIds, setIsDragging]);
 
-  // Performance stats
-  const stats = useMemo(() => {
-    return {
-      totalCards: cards.length,
-      visibleCards: visibleCards.length,
-      totalConnections: connections.length,
-      visibleConnections: visibleConnections.length,
-      highPerformanceMode: isHighPerformanceMode ? 'ON' : 'OFF',
-      zoomMode: isZooming ? 'ZOOMING' : 'NORMAL'
+  // ===== EVENT LISTENERS =====
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.addEventListener('mousedown', handleCanvasMouseDown);
+    document.addEventListener('mousemove', handleCanvasMouseMove);
+    document.addEventListener('mouseup', handleCanvasMouseUp);
+
+    return () => {
+      canvas.removeEventListener('mousedown', handleCanvasMouseDown);
+      document.removeEventListener('mousemove', handleCanvasMouseMove);
+      document.removeEventListener('mouseup', handleCanvasMouseUp);
     };
-  }, [
-    cards.length, 
-    visibleCards.length, 
-    connections.length, 
-    visibleConnections.length,
-    isHighPerformanceMode,
-    isZooming
-  ]);
+  }, [handleCanvasMouseDown, handleCanvasMouseMove, handleCanvasMouseUp]);
 
+  // ===== COLLABORATION SYNC =====
   // Register sync callback with CollaborationContext
   useEffect(() => {
-    console.log('Canvas: Registering sync callback', { registerCardContextSync: !!registerCardContextSync, setCurrentSpace: !!setCurrentSpace });
+    console.log('Canvas: Registering sync callback', { 
+      registerCardContextSync: !!registerCardContextSync, 
+      setCurrentSpace: !!setCurrentSpace 
+    });
+    
     if (registerCardContextSync && setCurrentSpace) {
       console.log('Canvas: About to register callback function:', setCurrentSpace);
       registerCardContextSync(setCurrentSpace);
       console.log('Canvas: Sync callback registered successfully');
     }
-  }, [registerCardContextSync]);
+  }, [registerCardContextSync, setCurrentSpace]);
 
   // Debug current space states
   useEffect(() => {
@@ -729,11 +433,182 @@ const Canvas = () => {
     });
   }, [currentSpaceId, currentSpace, showCollaborationUI]);
 
+  // ===== RENDERING OPTIMIZATIONS =====
+  
+  // Throttle render updates
+  const throttleRender = useCallback(() => {
+    if (renderTimerRef.current) return;
+    renderTimerRef.current = setTimeout(() => {
+      setForceUpdate(prev => prev + 1);
+      renderTimerRef.current = null;
+    }, RENDER_THROTTLE);
+  }, []);
+
+  // Handle zoom changes
+  useEffect(() => {
+    setIsZooming(true);
+    if (zoomTimerRef.current) {
+      clearTimeout(zoomTimerRef.current);
+    }
+    zoomTimerRef.current = setTimeout(() => {
+      setIsZooming(false);
+    }, 150);
+  }, [zoom]);
+
+  // Calculate transform style
+  const transformStyle = useMemo(() => {
+    return `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`;
+  }, [pan.x, pan.y, zoom]);
+
+  // Get visible cards for performance
+  const visibleCards = useMemo(() => {
+    if (isHighPerformanceMode && (isZooming || isPanning)) {
+      return cards.slice(0, Math.min(20, cards.length));
+    }
+    
+    if (!canvasToScreen) return cards;
+    
+    const canvasRect = canvasRef.current?.getBoundingClientRect();
+    if (!canvasRect) return cards;
+    
+    return cards.filter(card => {
+      const screenPos = canvasToScreen(card.position);
+      return screenPos.x > -BUFFER_SIZE && 
+             screenPos.x < canvasRect.width + BUFFER_SIZE &&
+             screenPos.y > -BUFFER_SIZE && 
+             screenPos.y < canvasRect.height + BUFFER_SIZE;
+    });
+  }, [cards, canvasToScreen, isHighPerformanceMode, isZooming, isPanning, forceUpdate]);
+
+  // ===== CARD RENDERING =====
+  const renderedCards = useMemo(() => {
+    const cardsToRender = isHighPerformanceMode && (isZooming || isPanning) ? 
+      visibleCards.map(card => (
+        <CardPlaceholder key={card.id} position={card.position} type={card.type} />
+      )) :
+      visibleCards.map(card => {
+        let CardComponent;
+        if (card.type === 'category') {
+          CardComponent = CategoryCard;
+        } else if (card.type === 'label') {
+          CardComponent = LabelCard;
+        } else {
+          CardComponent = AnswerCard;
+        }
+        
+        const isSelected = selectedCardIds.includes(card.id);
+        const isLockedByMe = isCardLockedByMe(card.id);
+        const isLockedByOthers = isCardLockedByOthers(card.id);
+        const isSelectedByOthers = isCardSelectedByOthers(card.id);
+        
+        return (
+          <Suspense key={card.id} fallback={<CardPlaceholder position={card.position} type={card.type} />}>
+            <CardComponent
+              key={card.id}
+              card={card}
+              isSelected={isSelected}
+              isLocked={isLockedByMe || isLockedByOthers}
+              isLockedByMe={isLockedByMe}
+              isLockedByOthers={isLockedByOthers}
+              isSelectedByOthers={isSelectedByOthers}
+              isHovered={hoveredCardId === card.id}
+              isRelated={relatedCardIds.has(card.id)}
+              connectMode={connectMode}
+              connectSource={connectSource}
+              onConnect={(sourceId, targetId) => {
+                connectCards(sourceId, targetId);
+                setConnectSource(null);
+                setConnectTarget(null);
+                setConnectMode(false);
+              }}
+              onConnectStart={(cardId) => {
+                setConnectSource(cardId);
+              }}
+              onHover={(cardId) => {
+                setHoveredCardId(cardId);
+                if (cardId) {
+                  const related = new Set();
+                  connections.forEach(conn => {
+                    if (conn.sourceId === cardId) related.add(conn.targetId);
+                    if (conn.targetId === cardId) related.add(conn.sourceId);
+                  });
+                  setRelatedCardIds(related);
+                } else {
+                  setRelatedCardIds(new Set());
+                }
+              }}
+            />
+          </Suspense>
+        );
+      });
+    
+    return cardsToRender;
+  }, [
+    visibleCards, selectedCardIds, isCardLockedByMe, isCardLockedByOthers, 
+    isCardSelectedByOthers, hoveredCardId, relatedCardIds, connectMode, 
+    connectSource, connections, isHighPerformanceMode, isZooming, isPanning,
+    connectCards
+  ]);
+
+  // ===== CONNECTION RENDERING =====
+  const renderedConnections = useMemo(() => {
+    if (isHighPerformanceMode && (isZooming || isPanning)) {
+      return [];
+    }
+    
+    return connections.map(connection => {
+      const sourceCard = getCardById(connection.sourceId);
+      const targetCard = getCardById(connection.targetId);
+      
+      // Skip rendering if either card is missing
+      if (!sourceCard || !targetCard) {
+        return null;
+      }
+      
+      return (
+        <CardConnection
+          key={connection.id}
+          sourcePosition={sourceCard.position}
+          targetPosition={targetCard.position}
+          isHighlighted={relatedCardIds.has(connection.sourceId) || relatedCardIds.has(connection.targetId)}
+        />
+      );
+    }).filter(Boolean); // Remove null entries
+  }, [connections, getCardById, relatedCardIds, isHighPerformanceMode, isZooming, isPanning]);
+
+  // ===== GRID RENDERING =====
+  const renderGrid = useMemo(() => {
+    if (zoom < 0.3) return null;
+    
+    return (
+      <div 
+        className="grid-background"
+        style={{
+          transform: transformStyle,
+          opacity: Math.min(1, zoom)
+        }}
+      />
+    );
+  }, [zoom, transformStyle]);
+
+  // ===== ZOOM CONTROLS =====
+  const handleZoomIn = useCallback(() => {
+    handleZoom(1.2, { x: window.innerWidth / 2, y: window.innerHeight / 2 });
+  }, [handleZoom]);
+
+  const handleZoomOut = useCallback(() => {
+    handleZoom(0.8, { x: window.innerWidth / 2, y: window.innerHeight / 2 });
+  }, [handleZoom]);
+
+  const handleResetZoom = useCallback(() => {
+    resetView();
+  }, [resetView]);
+
+  // ===== RENDER =====
   return (
     <div 
       className={`canvas-container ${connectMode ? 'connect-mode' : ''} ${isZooming ? 'zooming' : ''}`}
       ref={canvasRef}
-      onClick={handleCanvasClick}
       style={{
         width: '100%',
         height: '100vh',
@@ -745,6 +620,22 @@ const Canvas = () => {
     >
       {/* Grid background */}
       {renderGrid}
+      
+      {/* Selection Rectangle - FIXED POSITIONING */}
+      {isDragSelecting && (
+        <div 
+          className="selection-rectangle"
+          style={{ 
+            position: 'absolute',
+            left: `${Math.min(dragSelectionRect.x, dragSelectionRect.x + dragSelectionRect.width) * zoom + pan.x}px`,
+            top: `${Math.min(dragSelectionRect.y, dragSelectionRect.y + dragSelectionRect.height) * zoom + pan.y}px`,
+            width: `${Math.abs(dragSelectionRect.width) * zoom}px`,
+            height: `${Math.abs(dragSelectionRect.height) * zoom}px`,
+            pointerEvents: 'none',
+            zIndex: 1000
+          }}
+        />
+      )}
       
       <div className={`canvas ${isPanning ? 'moving' : ''}`}>
         {/* No Space Selected Message */}
@@ -775,9 +666,6 @@ const Canvas = () => {
         <div className="cards-container" style={{ transform: transformStyle }}>
           {renderedCards}
         </div>
-        
-        {/* Action Bar - Now integrated in NavBar */}
-        {/* <ActionBar addCard={addCard} setConnectMode={setConnectMode} /> */}
         
         {/* Connect Mode Indicator */}
         {connectMode && (

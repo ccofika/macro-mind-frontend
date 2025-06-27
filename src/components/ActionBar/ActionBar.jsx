@@ -5,7 +5,7 @@ import './ActionBar.css';
 
 const ActionBar = () => {
   const [showTooltip, setShowTooltip] = useState('');
-  const { createCategoryCard, createAnswerCard, connectMode, setConnectMode } = useCards();
+  const { createCategoryCard, createAnswerCard, createLabelCard, connectMode, setConnectMode } = useCards();
   const { isOpen, openChat } = useAIChat();
 
   const handleCreateCategory = () => {
@@ -18,6 +18,12 @@ const ActionBar = () => {
     const centerX = window.innerWidth / 2;
     const centerY = window.innerHeight / 2;
     createAnswerCard('New Answer', 'Enter your response here...', { x: centerX, y: centerY });
+  };
+
+  const handleCreateLabel = () => {
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    createLabelCard('New Label', { x: centerX, y: centerY });
   };
 
   const handleConnectMode = () => {
@@ -84,6 +90,31 @@ const ActionBar = () => {
           <polyline points="10,9 9,9 8,9"></polyline>
         </svg>
         {showTooltip === 'answer' && <div className="tooltip">New Answer</div>}
+      </button>
+
+      <button 
+        className="action-button"
+        onClick={handleCreateLabel}
+        onMouseEnter={() => setShowTooltip('label')}
+        onMouseLeave={() => setShowTooltip('')}
+        title="New Label"
+      >
+        <svg 
+          className="action-icon" 
+          width="18" 
+          height="18" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+        >
+          <path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"></path>
+          <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7"></path>
+          <path d="M8 12h8"></path>
+        </svg>
+        {showTooltip === 'label' && <div className="tooltip">New Label</div>}
       </button>
       
       <button 

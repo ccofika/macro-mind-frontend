@@ -17,13 +17,12 @@ export const useDragAndDrop = (id, initialPosition) => {
     startCardX: 0,
     startCardY: 0,
     lastNetworkUpdate: 0,
-    networkThrottle: 50 // 20 FPS for network updates (was 100ms, now 50ms)
+    networkThrottle: 50 // 20 FPS for network updates
   });
   
-  // Immediate position update without RAF for instant response
+  // Update card position during drag
   const updateCardPosition = useCallback((clientX, clientY) => {
     const state = dragStateRef.current;
-    
     if (!state.isDragging) return;
     
     let newPosition;
@@ -44,7 +43,6 @@ export const useDragAndDrop = (id, initialPosition) => {
       };
     } else {
       // Fallback if screenToCanvas is not available
-      // Calculate delta in screen coordinates
       const deltaX = clientX - state.startMouseX;
       const deltaY = clientY - state.startMouseY;
       
@@ -55,21 +53,20 @@ export const useDragAndDrop = (id, initialPosition) => {
       };
     }
     
-    // INSTANT local state update - no RAF delay
+    // Update local position immediately
     setPosition(newPosition);
     
-    // Network updates with smarter throttling
+    // Network updates with throttling
     const now = Date.now();
     if (now - state.lastNetworkUpdate >= state.networkThrottle) {
       state.lastNetworkUpdate = now;
-      // Only send network updates, don't update local position again
+      console.log('useDragAndDrop: Moving card', id, 'to position', newPosition);
       moveCard(id, newPosition, true);
     }
   }, [id, zoom, screenToCanvas, moveCard]);
   
-  // Direct mouse move handler without RAF for instant response
+  // Mouse move handler
   const handleMouseMove = useCallback((e) => {
-    // INSTANT update - no RAF delay
     updateCardPosition(e.clientX, e.clientY);
   }, [updateCardPosition]);
   
@@ -87,7 +84,7 @@ export const useDragAndDrop = (id, initialPosition) => {
       // Clean up cursor
       document.body.style.cursor = '';
     }
-  }, [id, finalizeMoveCard]);
+  }, [finalizeMoveCard]);
   
   // Start dragging
   const handleMouseDown = useCallback((e) => {
@@ -101,26 +98,42 @@ export const useDragAndDrop = (id, initialPosition) => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Select the card (support for multi-select with Ctrl/Cmd key)
-    selectCard(id, e.ctrlKey || e.metaKey);
+    // ===== SIMPLIFIED SELECTION LOGIC =====
+    const isMultiSelect = e.shiftKey || e.ctrlKey || e.metaKey;
+    console.log('useDragAndDrop: Mouse down on card', id, 'isMultiSelect:', isMultiSelect);
     
-    // Initialize drag state
+    // If multi-selecting, just toggle selection
+    if (isMultiSelect) {
+      selectCard(id, true);
+      return; // Don't start drag on multi-select
+    }
+    
+    // If card is already part of multi-selection, don't change selection
+    if (selectedCardIds.length > 1 && selectedCardIds.includes(id)) {
+      console.log('useDragAndDrop: Card is part of multi-selection, keeping selection');
+      // Don't change selection, just start drag
+    } else {
+      // Single select this card
+      selectCard(id, false);
+    }
+    
+    // ===== START DRAG =====
     const state = dragStateRef.current;
     state.isDragging = true;
     state.startMouseX = e.clientX;
     state.startMouseY = e.clientY;
     state.startCardX = position.x;
     state.startCardY = position.y;
-    state.lastNetworkUpdate = 0; // Reset network throttle
+    state.lastNetworkUpdate = 0;
     
     setIsDragging(true);
     
     // Set cursor for entire document
     document.body.style.cursor = 'grabbing';
     
-    // Add global event listeners with passive: false for better performance
+    // Add global event listeners
     const mouseMoveHandler = (e) => {
-      e.preventDefault(); // Prevent any default behavior
+      e.preventDefault();
       handleMouseMove(e);
     };
     const mouseUpHandler = (e) => {
@@ -129,18 +142,16 @@ export const useDragAndDrop = (id, initialPosition) => {
       cleanup();
     };
     
-    // Use capture phase for better event handling
     document.addEventListener('mousemove', mouseMoveHandler, { capture: true, passive: false });
     document.addEventListener('mouseup', mouseUpHandler, { capture: true, passive: false, once: true });
     
-    // Store cleanup function
     const cleanup = () => {
       document.removeEventListener('mousemove', mouseMoveHandler, { capture: true });
       document.removeEventListener('mouseup', mouseUpHandler, { capture: true });
       document.body.style.cursor = '';
     };
     
-  }, [id, position, selectCard, handleMouseMove, handleMouseUp]);
+  }, [id, position, selectCard, selectedCardIds, handleMouseMove, handleMouseUp]);
   
   // Handle touch events for mobile
   const handleTouchStart = useCallback((e) => {
@@ -156,13 +167,12 @@ export const useDragAndDrop = (id, initialPosition) => {
     handleMouseDown(mouseEvent);
   }, [handleMouseDown]);
   
-  // Sync position when it changes externally (from network updates)
+  // Update position when it changes externally
   const updatePosition = useCallback((newPosition) => {
     // Only update if not currently dragging locally
     if (!dragStateRef.current.isDragging) {
       setPosition(newPosition);
     }
-    // If dragging, ignore external updates to prevent conflicts
   }, []);
   
   // Cleanup on unmount
@@ -171,18 +181,6 @@ export const useDragAndDrop = (id, initialPosition) => {
       document.body.style.cursor = '';
     };
   }, []);
-  
-  // Handle multi-select dragging
-  useEffect(() => {
-    if (isDragging && selectedCardIds && selectedCardIds.length > 1) {
-      // If this card is part of a multi-selection, other selected cards should move too
-      const isSelected = selectedCardIds.includes(id);
-      if (isSelected) {
-        // The movement logic is handled in CardContext for all selected cards
-        // This ensures synchronized movement
-      }
-    }
-  }, [isDragging, selectedCardIds, id]);
   
   return {
     position,

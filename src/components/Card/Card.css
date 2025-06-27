@@ -621,3 +621,202 @@ textarea:disabled {
   outline: 2px solid var(--text-accent);
   outline-offset: 2px;
 }
+
+/* Label Card Styles */
+.label-card {
+  position: absolute;
+  min-width: 100px;
+  min-height: 40px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  cursor: move;
+  user-select: none;
+  transition: all var(--transition-normal);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Optimizations for smooth dragging */
+  will-change: transform;
+}
+
+.label-card:hover {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+}
+
+.label-card.selected {
+  background: var(--glass-bg);
+  backdrop-filter: blur(15px);
+  border: 2px solid var(--text-accent);
+  box-shadow: 
+    0 0 0 2px var(--text-accent),
+    var(--shadow-md);
+  z-index: 15;
+}
+
+.label-card.dragging {
+  opacity: 0.9;
+  z-index: 100;
+  transform: rotate(1deg);
+  transition: none !important;
+}
+
+.label-card.hovered {
+  background: var(--glass-bg);
+  backdrop-filter: blur(15px);
+  border: 1px solid var(--text-accent);
+  z-index: 20 !important;
+}
+
+/* Label Text */
+.label-text {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  cursor: text;
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: visible;
+  line-height: 1.2;
+  min-width: 50px;
+  padding: var(--space-sm);
+}
+
+.label-card:hover .label-text {
+  color: var(--text-primary);
+}
+
+/* Label Input */
+.label-input {
+  background: var(--glass-bg);
+  border: 2px solid var(--text-accent);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--space-sm) var(--space-md);
+  text-align: center;
+  font-family: inherit;
+  outline: none;
+  min-width: 100px;
+  transition: all var(--transition-normal);
+}
+
+.label-input:focus {
+  background: var(--glass-bg-strong);
+  box-shadow: 
+    0 0 0 3px rgba(59, 130, 246, 0.2),
+    var(--shadow-md);
+}
+
+/* Label Controls */
+.label-controls {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--space-xs);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-xs);
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+}
+
+.font-size-btn {
+  width: 24px;
+  height: 24px;
+  background: var(--surface-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-normal);
+}
+
+.font-size-btn:hover {
+  background: var(--surface-bg-hover);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+.font-size-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Lock Indicator for Label */
+.label-card .lock-indicator {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 16px;
+  height: 16px;
+  background: var(--locked-accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  z-index: 101;
+}
+
+.label-card.locked-by-others {
+  border-color: var(--locked-accent);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.label-card.locked-by-me {
+  border-color: var(--locked-by-me-accent);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+/* Label Type Variant */
+.label-card::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--text-accent), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.label-card:hover::before,
+.label-card.selected::before {
+  opacity: 0.6;
+}
+
+/* Responsive Design for Labels */
+@media (max-width: 768px) {
+  .label-card {
+    min-width: 80px;
+    min-height: 32px;
+    padding: var(--space-sm);
+  }
+  
+  .label-controls {
+    top: -35px;
+  }
+  
+  .font-size-btn {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .font-size-btn svg {
+    width: 10px;
+    height: 10px;
+  }
+}

@@ -101,7 +101,9 @@ const CategoryCard = ({
       cardId: card.id, 
       connectMode, 
       isLocked: isCardLockedByOthers(card.id),
-      expandedState: isExpanded 
+      expandedState: isExpanded,
+      shiftKey: e.shiftKey,
+      ctrlKey: e.ctrlKey
     });
     
     // Check if card is locked by another user
@@ -121,9 +123,18 @@ const CategoryCard = ({
       return; // Don't expand card when connecting
     }
     
-    // Only select card on single click, don't expand
-    if (!isExpanded && onSelect) {
-      onSelect(card.id, false);
+    // Check for multi-selection modifiers (Shift, Ctrl, Cmd)
+    const isMultiSelect = e.shiftKey || e.ctrlKey || e.metaKey;
+    
+    // Always handle selection regardless of expand state for multi-select
+    if (onSelect) {
+      onSelect(card.id, isMultiSelect);
+    }
+    
+    // Only use collaboration for single selection
+    if (!isMultiSelect && collaborationSelectCard) {
+      console.log('CategoryCard: Selecting card via collaboration:', card.id);
+      collaborationSelectCard(card.id);
     }
   };
   
