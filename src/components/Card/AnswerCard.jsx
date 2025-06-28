@@ -37,6 +37,7 @@ const AnswerCard = ({
   isHovered,
   isRelated,
   connectMode,
+  connectSource,
   onConnect,
   onConnectStart,
   onConnectEnd,
@@ -120,10 +121,20 @@ const AnswerCard = ({
     
     // If in connect mode, handle connection logic
     if (connectMode) {
-      console.log('AnswerCard: In connect mode, calling onConnect for card:', card.id);
+      console.log('AnswerCard: In connect mode, handling connection for card:', card.id);
       
-      if (onConnect) {
-        onConnect(card.id);
+      // If we have a connectSource and this is a different card, complete the connection
+      if (connectSource && connectSource !== card.id) {
+        console.log('AnswerCard: Completing connection from', connectSource, 'to', card.id);
+        if (onConnect) {
+          onConnect(connectSource, card.id);
+        }
+      } else {
+        // Start a new connection from this card
+        console.log('AnswerCard: Starting connection from card:', card.id);
+        if (onConnectStart) {
+          onConnectStart(card.id);
+        }
       }
       
       return; // Don't expand card when connecting
@@ -365,8 +376,8 @@ const AnswerCard = ({
     
     console.log('AnswerCard: Connection button clicked for card:', card.id);
     
-    if (onConnect) {
-      onConnect(card.id);
+    if (onConnectStart) {
+      onConnectStart(card.id);
     }
   };
 
