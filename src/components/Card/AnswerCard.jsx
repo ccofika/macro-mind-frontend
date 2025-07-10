@@ -129,13 +129,22 @@ const AnswerCard = ({
       return; // Cannot interact with card locked by others
     }
     
-    // If in connect mode, handle connection deletion selection logic
+    // If in connect mode, handle connection logic
     if (connectMode) {
-      console.log('AnswerCard: In connect mode, selecting for deletion:', card.id);
+      console.log('AnswerCard: In connect mode, attempting to connect:', card.id);
       
-      // Select card for connection deletion
-      if (onSelectForDeletion) {
-        onSelectForDeletion(card.id);
+      // Check if we have a connect source - if so, make connection
+      if (connectSource && connectSource !== card.id) {
+        console.log('AnswerCard: Creating connection from', connectSource, 'to', card.id);
+        if (onConnect) {
+          onConnect(connectSource, card.id);
+        }
+      } else {
+        // Start connection from this card
+        console.log('AnswerCard: Starting connection from:', card.id);
+        if (onConnectStart) {
+          onConnectStart(card.id);
+        }
       }
       
       return; // Don't expand card when in connect mode

@@ -17,6 +17,7 @@ const LabelCard = ({
   isHovered,
   isRelated,
   connectMode,
+  connectSource,
   onConnect,
   onConnectStart,
   onConnectEnd,
@@ -98,13 +99,22 @@ const LabelCard = ({
       return;
     }
     
-    // If in connect mode, handle connection deletion selection logic
+    // If in connect mode, handle connection logic
     if (connectMode) {
-      console.log('LabelCard: In connect mode, selecting for deletion:', card.id);
+      console.log('LabelCard: In connect mode, attempting to connect:', card.id);
       
-      // Select card for connection deletion
-      if (onSelectForDeletion) {
-        onSelectForDeletion(card.id);
+      // Check if we have a connect source - if so, make connection
+      if (connectSource && connectSource !== card.id) {
+        console.log('LabelCard: Creating connection from', connectSource, 'to', card.id);
+        if (onConnect) {
+          onConnect(connectSource, card.id);
+        }
+      } else {
+        // Start connection from this card
+        console.log('LabelCard: Starting connection from:', card.id);
+        if (onConnectStart) {
+          onConnectStart(card.id);
+        }
       }
       
       return; // Don't do normal selection when in connect mode
