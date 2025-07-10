@@ -31,6 +31,13 @@ const LockIcon = memo(() => (
   </svg>
 ));
 
+const CloseIcon = memo(() => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+));
+
 const AnswerCard = ({ 
   card, 
   isSelected, 
@@ -44,7 +51,10 @@ const AnswerCard = ({
   onHover,
   onLeave,
   onSelect,
-  onDeselect
+  onDeselect,
+  selectedForDeletion,
+  onSelectForDeletion,
+  onDeleteConnections
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -119,25 +129,16 @@ const AnswerCard = ({
       return; // Cannot interact with card locked by others
     }
     
-    // If in connect mode, handle connection logic
+    // If in connect mode, handle connection deletion selection logic
     if (connectMode) {
-      console.log('AnswerCard: In connect mode, handling connection for card:', card.id);
+      console.log('AnswerCard: In connect mode, selecting for deletion:', card.id);
       
-      // If we have a connectSource and this is a different card, complete the connection
-      if (connectSource && connectSource !== card.id) {
-        console.log('AnswerCard: Completing connection from', connectSource, 'to', card.id);
-        if (onConnect) {
-          onConnect(connectSource, card.id);
-        }
-      } else {
-        // Start a new connection from this card
-        console.log('AnswerCard: Starting connection from card:', card.id);
-        if (onConnectStart) {
-          onConnectStart(card.id);
-        }
+      // Select card for connection deletion
+      if (onSelectForDeletion) {
+        onSelectForDeletion(card.id);
       }
       
-      return; // Don't expand card when connecting
+      return; // Don't expand card when in connect mode
     }
     
     // Check for multi-selection modifiers (Shift, Ctrl, Cmd)
@@ -467,6 +468,30 @@ const AnswerCard = ({
           >
             {card.title}
           </div>
+        )}
+        
+        {/* DEBUG: Always show X button for testing */}
+        {connectMode && (
+          <button 
+            className="card-delete-connections-action"
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('X button clicked for card:', card.id);
+              if (onDeleteConnections) {
+                onDeleteConnections(card.id);
+              }
+            }}
+            title="Delete all connections for this card"
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              zIndex: 1000,
+              display: 'flex'
+            }}
+          >
+            <CloseIcon />
+          </button>
         )}
         
         {isExpanded && (

@@ -125,10 +125,10 @@ const CardConnection = ({ sourcePosition, targetPosition, isHighlighted }) => {
         height: isHighlighted ? '3px' : '2px',
         backgroundColor: isHighlighted ? 'var(--accent-color)' : 'rgba(74, 158, 255, 0.6)',
         transformOrigin: 'left center',
-        transform: `rotate(${angle}deg) translateZ(0)`, // Add translateZ(0) for hardware acceleration
+        transform: `rotate(${angle}deg) translateZ(0)`,
         opacity: isHighlighted ? 0.9 : 0.6,
         zIndex: isHighlighted ? 5 : 0,
-        willChange: 'transform, opacity, height', // Hint to browser for optimization
+        willChange: 'transform, opacity, height',
         boxShadow: isHighlighted ? '0 0 8px rgba(74, 158, 255, 0.5)' : 'none'
       }}
     >
@@ -145,7 +145,7 @@ const CardConnection = ({ sourcePosition, targetPosition, isHighlighted }) => {
           borderBottom: `${isHighlighted ? '5px' : '4px'} solid transparent`,
           borderLeft: `${isHighlighted ? '10px' : '8px'} solid ${isHighlighted ? 'var(--accent-color)' : 'rgba(74, 158, 255, 0.6)'}`,
           transformOrigin: 'center center',
-          transform: 'translateZ(0)' // Hardware acceleration for arrowhead
+          transform: 'translateZ(0)'
         }}
       />
     </div>

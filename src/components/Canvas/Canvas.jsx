@@ -79,7 +79,10 @@ const Canvas = () => {
     currentSpaceId,
     connectMode,
     setConnectMode,
-    selectCard
+    selectCard,
+    copySelectedCards,
+    pasteCards,
+    deleteAllConnectionsForCard
   } = useCards();
   
   const { 
@@ -104,6 +107,7 @@ const Canvas = () => {
   const [connectTarget, setConnectTarget] = useState(null);
   const [hoveredCardId, setHoveredCardId] = useState(null);
   const [relatedCardIds, setRelatedCardIds] = useState(new Set());
+  const [selectedCardForDeletion, setSelectedCardForDeletion] = useState(null);
   const [forceUpdate, setForceUpdate] = useState(0);
   const [isZooming, setIsZooming] = useState(false);
   const [isHighPerformanceMode, setIsHighPerformanceMode] = useState(false);
@@ -183,8 +187,14 @@ const Canvas = () => {
         return;
       }
       
-      if (e.key === 'c') {
-        setConnectMode(prev => !prev);
+      if (e.key === 'c' && !e.ctrlKey && !e.metaKey) {
+        setConnectMode(prev => {
+          if (prev) {
+            // Exiting connect mode, clear selection for deletion
+            setSelectedCardForDeletion(null);
+          }
+          return !prev;
+        });
       }
       
       // Escape key - context-sensitive
@@ -193,6 +203,7 @@ const Canvas = () => {
           setConnectMode(false);
           setConnectSource(null);
           setConnectTarget(null);
+          setSelectedCardForDeletion(null);
         } else if (selectedCardIds.length > 0) {
           // Clear selection if cards are selected
           clearSelection();
@@ -218,6 +229,18 @@ const Canvas = () => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCardIds.length > 0) {
         e.preventDefault();
         deleteSelectedCards();
+      }
+      
+      // Copy selected cards with Ctrl+C
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedCardIds.length > 0) {
+        e.preventDefault();
+        copySelectedCards();
+      }
+      
+      // Paste cards with Ctrl+V
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        pasteCards();
       }
     };
 
@@ -519,7 +542,6 @@ const Canvas = () => {
                 connectCards(sourceId, targetId);
                 setConnectSource(null);
                 setConnectTarget(null);
-                setConnectMode(false);
               }}
               onConnectStart={(cardId) => {
                 setConnectSource(cardId);
@@ -537,6 +559,18 @@ const Canvas = () => {
                   setRelatedCardIds(new Set());
                 }
               }}
+              selectedForDeletion={selectedCardForDeletion === card.id}
+              onSelectForDeletion={(cardId) => {
+                if (connectMode) {
+                  setSelectedCardForDeletion(cardId);
+                }
+              }}
+              onDeleteConnections={(cardId) => {
+                if (connectMode) {
+                  deleteAllConnectionsForCard(cardId);
+                  setSelectedCardForDeletion(null);
+                }
+              }}
             />
           </Suspense>
         );
@@ -547,7 +581,7 @@ const Canvas = () => {
     visibleCards, selectedCardIds, isCardLockedByMe, isCardLockedByOthers, 
     isCardSelectedByOthers, hoveredCardId, relatedCardIds, connectMode, 
     connectSource, connections, isHighPerformanceMode, isZooming, isPanning,
-    connectCards
+    connectCards, selectedCardForDeletion
   ]);
 
   // ===== CONNECTION RENDERING =====
@@ -677,7 +711,10 @@ const Canvas = () => {
               </svg>
             </span>
             <span>Connect Mode</span>
-            <button className="connect-exit-button" onClick={() => setConnectMode(false)}>Exit</button>
+            <button className="connect-exit-button" onClick={() => {
+              setConnectMode(false);
+              setSelectedCardForDeletion(null);
+            }}>Exit</button>
           </div>
         )}
         

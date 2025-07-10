@@ -53,6 +53,7 @@ export const CardProvider = ({ children }) => {
   const [currentSpaceId, setCurrentSpaceId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [connectMode, setConnectMode] = useState(false);
+  const [copiedCards, setCopiedCards] = useState([]);
   
   const { screenToCanvas } = useCanvas();
 
@@ -822,6 +823,139 @@ export const CardProvider = ({ children }) => {
     return createCard(type, position);
   }, [createCard]);
 
+  // Copy selected cards
+  const copySelectedCards = useCallback(() => {
+    if (selectedCardIds.length === 0) return;
+    
+    const cardsToCopy = selectedCardIds.map(id => cards.find(card => card.id === id)).filter(Boolean);
+    setCopiedCards(cardsToCopy);
+    
+    console.log('CardContext: Copied cards:', cardsToCopy.length);
+  }, [selectedCardIds, cards]);
+
+  // Paste cards
+  const pasteCards = useCallback(async () => {
+    if (copiedCards.length === 0 || !currentSpaceId) return;
+    
+    console.log('CardContext: Pasting cards:', copiedCards.length);
+    
+    // Get center of screen in canvas coordinates
+    const centerScreen = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    const centerCanvas = screenToCanvas ? screenToCanvas(centerScreen) : { x: 0, y: 0 };
+    
+    // Calculate offset from the first card's position to center
+    const firstCardPos = copiedCards[0].position;
+    const offsetX = centerCanvas.x - firstCardPos.x;
+    const offsetY = centerCanvas.y - firstCardPos.y;
+    
+    const newCardIds = [];
+    
+    // Create new cards with adjusted positions
+    for (const originalCard of copiedCards) {
+      const newPosition = {
+        x: originalCard.position.x + offsetX,
+        y: originalCard.position.y + offsetY
+      };
+      
+      const newCard = {
+        id: uuidv4(),
+        type: originalCard.type,
+        title: originalCard.title,
+        content: originalCard.content,
+        position: newPosition,
+        spaceId: currentSpaceId, // Use current space ID
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Add fontSize for label cards
+      if (originalCard.type === 'label' && originalCard.fontSize) {
+        newCard.fontSize = originalCard.fontSize;
+      }
+      
+      // Add to local state
+      setCards(prevCards => [...prevCards, newCard]);
+      newCardIds.push(newCard.id);
+      
+      try {
+        // Save to server
+        const savedCard = await cardApi.createCard(newCard);
+        
+        // Update local state with server response
+        setCards(prevCards => prevCards.map(card => 
+          card.id === newCard.id ? savedCard : card
+        ));
+        
+        // Notify other users via websocket
+        websocketService.notifyCardCreated(savedCard);
+      } catch (err) {
+        console.error("Failed to create pasted card on server:", err);
+      }
+    }
+    
+    // Add to history
+    setCards(currentCards => {
+      addToHistory(currentCards, connections);
+      return currentCards;
+    });
+    
+    // Select the new cards
+    setSelectedCardIds(newCardIds);
+    
+    console.log('CardContext: Pasted cards completed:', newCardIds.length);
+  }, [copiedCards, currentSpaceId, screenToCanvas, cards, connections, addToHistory, setSelectedCardIds]);
+
+  // Delete all connections for a specific card
+  const deleteAllConnectionsForCard = useCallback(async (cardId) => {
+    console.log('CardContext: deleteAllConnectionsForCard called for card:', cardId);
+    
+    // Find all connections involving this card
+    const connectionsToDelete = connections.filter(
+      conn => conn.sourceId === cardId || conn.targetId === cardId
+    );
+    
+    if (connectionsToDelete.length === 0) {
+      console.log('CardContext: No connections found for card:', cardId);
+      return;
+    }
+    
+    console.log(`CardContext: Found ${connectionsToDelete.length} connections to delete for card:`, cardId);
+    
+    // Remove connections from local state
+    setConnections(prev => {
+      const newConnections = prev.filter(
+        conn => conn.sourceId !== cardId && conn.targetId !== cardId
+      );
+      addToHistory(cards, newConnections);
+      return newConnections;
+    });
+    
+    try {
+      // Delete connections on server
+      const response = await fetch(`/api/cards/${cardId}/connections`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete connections on server');
+      }
+      
+      console.log('CardContext: All connections deleted on server for card:', cardId);
+      
+      // Notify other users via websocket for each deleted connection
+      connectionsToDelete.forEach(connection => {
+        websocketService.notifyConnectionDeleted(connection.id);
+      });
+    } catch (err) {
+      console.error("Failed to delete connections on server:", err);
+      // Connections are still deleted locally
+    }
+  }, [connections, cards, addToHistory]);
+
   // Context value
   const value = {
     cards,
@@ -852,7 +986,11 @@ export const CardProvider = ({ children }) => {
     deleteSelectedCards,
     getCardById,
     getConnectedCards,
-    addCard
+    addCard,
+    copySelectedCards,
+    pasteCards,
+    copiedCards,
+    deleteAllConnectionsForCard
   };
 
   return (

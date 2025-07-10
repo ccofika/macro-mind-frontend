@@ -235,6 +235,33 @@
   height: var(--icon-md);
 }
 
+/* Delete Connections Button */
+.card-delete-connections-action {
+  width: var(--button-md);
+  height: var(--button-md);
+  background: #ff4444;
+  border: 1px solid #ff6666;
+  border-radius: var(--radius-md);
+  color: white;
+  cursor: pointer;
+  transition: all var(--transition-slow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.card-delete-connections-action:hover {
+  background: #ff6666;
+  border-color: #ff8888;
+  transform: scale(1.05);
+}
+
+.card-delete-connections-action svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
 /* Card Content */
 .card-content {
   flex: 1;
